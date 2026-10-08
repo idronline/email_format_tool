@@ -64,6 +64,17 @@ the corrected address already exists. Without it, nothing is changed, only repor
 
 Skipped and failed files are also printed to the terminal. One bad file never stops the run.
 
+### Suppression list
+
+```bash
+python collect_emails.py data.zip -o subscribers.csv --exclude existing_list.csv [--exclude more.xlsx]
+```
+
+Every email found in an `--exclude` file (any supported format, or a zip; the column name
+doesn't matter) is left out of `subscribers.csv`. Typo fixes are applied first, so a corrected
+address that is already on the list is also dropped. If a suppression file can't be read, the
+run stops without writing output, so you never get an unsuppressed list by accident.
+
 ## What it reads
 
 - Every folder in the zip, including **nested zips**. It skips `__MACOSX/`, dotfiles and `~$` Office lock files.

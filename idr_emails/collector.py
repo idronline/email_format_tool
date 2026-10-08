@@ -2,7 +2,7 @@
 
 import io
 import zipfile
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 from .extract import emails_in_text, extract_from_rows
 from .readers import decode, rows_from_csv, sheets_from_excel, text_from_docx
@@ -89,3 +89,24 @@ def collect(zip_path):
     with zipfile.ZipFile(zip_path) as zf:
         process_zip(zf, "", found, log, stats)
     return found, log, stats
+
+
+def emails_in_file(path):
+    """Return the set of emails in one file on disk (any supported type, or a zip)."""
+    path = Path(path)
+    if path.suffix.lower() == ".zip":
+        found, log, _ = collect(path)
+    else:
+        found, log = {}, []
+        try:
+            hits = hits_from_file(path.read_bytes(), path.suffix.lower())
+            if hits is None:
+                raise SystemExit(f"Unsupported file type for --exclude: {path}")
+            for e, _f, _l in hits:
+                found[e] = None
+        except Exception as exc:
+            log.append((str(path), "ERROR", f"{type(exc).__name__}: {exc}"))
+    errors = [f"{f}: {d}" for f, s, d in log if s == "ERROR"]
+    if errors:
+        raise SystemExit(f"Could not read all of {path}: " + "; ".join(errors))
+    return set(found)

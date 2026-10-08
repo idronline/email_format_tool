@@ -4,7 +4,7 @@ import argparse
 
 from . import NEWSLETTER_PREF, OUT_COLUMNS
 from .checks import apply_typo_fixes, find_suspicious
-from .collector import collect
+from .collector import collect, emails_in_file
 from .reports import write_csv, write_reports
 
 
@@ -19,11 +19,20 @@ def main(argv=None):
                     help="rewrite likely domain typos (e.g. gmial.com -> gmail.com) in the output")
     ap.add_argument("--check-mx", action="store_true",
                     help="flag domains with no mail server (needs network and dnspython)")
+    ap.add_argument("--exclude", metavar="FILE", action="append", default=[],
+                    help="suppression list: drop every email found in FILE (csv/xlsx/txt/zip...). Repeatable")
     args = ap.parse_args(argv)
+
+    suppressed = set()
+    for path in args.exclude:
+        suppressed |= emails_in_file(path)
 
     found, log, stats = collect(args.zipfile)
     suspicious = find_suspicious(found, check_mx_records=args.check_mx)
     fixed = apply_typo_fixes(found, suspicious) if args.fix_typos else 0
+    excluded = [e for e in found if e in suppressed]
+    for e in excluded:
+        del found[e]
 
     emails = sorted(found)
     write_csv(args.output, OUT_COLUMNS,
@@ -41,6 +50,8 @@ def main(argv=None):
           + ("" if args.report_dir else "  (see --report-dir for details)"))
     if args.fix_typos:
         print(f"Typos fixed   : {fixed}")
+    if args.exclude:
+        print(f"Excluded      : {len(excluded)} already on the suppression list ({len(suppressed)} emails)")
     if args.report_dir:
         for path in write_reports(args.report_dir, found, stats, suspicious):
             print(f"Report        : {path}")

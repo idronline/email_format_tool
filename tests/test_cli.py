@@ -138,3 +138,26 @@ def test_fix_typos(run_cli):
     assert res.by_email["ann@gmail.com"][1] == "Ann"
     assert set(res.by_email) == {"ann@gmail.com", "bob@hotmail.com"}
     assert "Typos fixed   : 2" in res.stdout
+
+
+def test_exclude_suppression_list(run_cli, tmp_path):
+    (tmp_path / "existing.csv").write_text("Subscriber Email\nOld@Example.com\nann@gmail.com\n")
+    (tmp_path / "more.xlsx").write_bytes(make_xlsx({"S": [["mail"], ["gone@example.org"]]}))
+    res = run_cli({"a.csv": "email\nold@example.com\nnew@example.com\ngone@example.org\nann@gmial.com\n"},
+                  "--exclude", str(tmp_path / "existing.csv"), "--exclude", str(tmp_path / "more.xlsx"),
+                  "--fix-typos")
+    assert set(res.by_email) == {"new@example.com"}  # typo-fixed address is suppressed too
+    assert "Excluded      : 3" in res.stdout
+
+
+def test_exclude_unreadable_file_fails_loudly(tmp_path):
+    import subprocess, sys
+    from conftest import ROOT
+    (tmp_path / "in.zip").write_bytes(make_zip({"a.csv": "email\nx@example.com\n"}))
+    (tmp_path / "bad.xlsx").write_bytes(b"not excel")
+    proc = subprocess.run([sys.executable, str(ROOT / "collect_emails.py"), str(tmp_path / "in.zip"),
+                           "-o", str(tmp_path / "o.csv"), "--log", str(tmp_path / "l.csv"),
+                           "--exclude", str(tmp_path / "bad.xlsx")], capture_output=True, text=True)
+    assert proc.returncode != 0
+    assert "Could not read" in proc.stderr and "Traceback" not in proc.stderr
+    assert not (tmp_path / "o.csv").exists()  # never write an unsuppressed list
