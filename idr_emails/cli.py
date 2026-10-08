@@ -3,6 +3,7 @@
 import argparse
 
 from . import NEWSLETTER_PREF, OUT_COLUMNS
+from .checks import apply_typo_fixes, find_suspicious
 from .collector import collect
 from .reports import write_csv, write_reports
 
@@ -13,10 +14,16 @@ def main(argv=None):
     ap.add_argument("-o", "--output", default="subscribers.csv", help="output CSV (default: subscribers.csv)")
     ap.add_argument("--log", default="collect_emails_log.csv", help="per-file log (default: collect_emails_log.csv)")
     ap.add_argument("--report-dir", metavar="DIR",
-                    help="also write missing_names.csv and per_file_summary.csv into DIR")
+                    help="also write missing_names.csv, per_file_summary.csv and suspicious_emails.csv into DIR")
+    ap.add_argument("--fix-typos", action="store_true",
+                    help="rewrite likely domain typos (e.g. gmial.com -> gmail.com) in the output")
+    ap.add_argument("--check-mx", action="store_true",
+                    help="flag domains with no mail server (needs network and dnspython)")
     args = ap.parse_args(argv)
 
     found, log, stats = collect(args.zipfile)
+    suspicious = find_suspicious(found, check_mx_records=args.check_mx)
+    fixed = apply_typo_fixes(found, suspicious) if args.fix_typos else 0
 
     emails = sorted(found)
     write_csv(args.output, OUT_COLUMNS,
@@ -30,8 +37,12 @@ def main(argv=None):
     print(f"Per-file log  : {args.log}")
     no_name = sum(1 for r in found.values() if not r["first"] and not r["last"])
     print(f"Without a name: {no_name}")
+    print(f"Suspicious    : {len({r[0] for r in suspicious})}"
+          + ("" if args.report_dir else "  (see --report-dir for details)"))
+    if args.fix_typos:
+        print(f"Typos fixed   : {fixed}")
     if args.report_dir:
-        for path in write_reports(args.report_dir, found, stats):
+        for path in write_reports(args.report_dir, found, stats, suspicious):
             print(f"Report        : {path}")
     if bad:
         print(f"\n{len(bad)} file(s) skipped or failed:")

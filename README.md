@@ -46,6 +46,21 @@ With `--report-dir DIR` it also writes (never committed, these contain personal 
 |---|---|
 | `DIR/missing_names.csv` | `email,source file` for every email that ended up with no name |
 | `DIR/per_file_summary.csv` | `file,emails found,with name,new unique` per file read |
+| `DIR/suspicious_emails.csv` | `email,issue,suggestion,source file` (see below) |
+
+### Suspicious addresses and typos
+
+Every run counts suspicious addresses. The details go to `suspicious_emails.csv`:
+
+- **possible domain typo**: known misspellings (`gmial.com`), bad TLDs (`.con`, `.cmo`),
+  or one edit away from a popular provider (`gmai.com`). A suggestion is given.
+- **placeholder/test address**: `noreply@`, `test@`, `example.com` and similar.
+- **malformed local part**: `..`, or a leading or trailing dot.
+- **domain has no mail server**: only with `--check-mx`. Needs network access and
+  `pip install dnspython` (or `pip install -e .[mx]`). Only domain names are looked up.
+
+`--fix-typos` rewrites typo domains to the suggestion in `subscribers.csv`, merging names if
+the corrected address already exists. Without it, nothing is changed, only reported.
 
 Skipped and failed files are also printed to the terminal. One bad file never stops the run.
 
@@ -88,6 +103,7 @@ idr_emails/
   collector.py         zip walking, per-file dispatch, dedupe/merge
   readers.py           bytes -> rows / text (csv, excel, docx, encodings)
   extract.py           email regex, header detection, name cleaning
+  checks.py            suspicious-address checks, typo fixes, optional MX lookup
   reports.py           optional side reports (--report-dir)
 tests/                 pytest, synthetic fixtures only
 ```

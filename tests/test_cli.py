@@ -123,3 +123,18 @@ def test_reports_missing_names_and_per_file_summary(run_cli, tmp_path):
 def test_no_reports_by_default(run_cli, tmp_path):
     run_cli({"a.csv": "email\nx@example.com\n"})
     assert not (tmp_path / "missing_names.csv").exists()
+
+
+def test_typos_reported_but_not_fixed_by_default(run_cli, tmp_path):
+    res = run_cli({"a.csv": "email,first name\nann@gmial.com,Ann\n"}, "--report-dir", str(tmp_path / "rep"))
+    assert set(res.by_email) == {"ann@gmial.com"}
+    sus = read_csv(tmp_path / "rep" / "suspicious_emails.csv")
+    assert sus[1] == ["ann@gmial.com", "possible domain typo", "ann@gmail.com", "a.csv"]
+
+
+def test_fix_typos(run_cli):
+    res = run_cli({"a.csv": "email,first name\nann@gmial.com,Ann\nbob@hotmail.con,Bob\n"}, "--fix-typos")
+    assert res.header == HEADER
+    assert res.by_email["ann@gmail.com"][1] == "Ann"
+    assert set(res.by_email) == {"ann@gmail.com", "bob@hotmail.com"}
+    assert "Typos fixed   : 2" in res.stdout

@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+mx = ["dnspython>=2.4"]
 
 [project.scripts]
 collect-emails = "idr_emails.cli:main"
