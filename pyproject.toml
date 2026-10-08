@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idr-emails"
+version = "0.2.0"
+description = "Collect emails and names from a zip of messy files into one subscriber CSV."
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "openpyxl>=3.1",
+    "xlrd>=2.0",
+    "odfpy>=1.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+collect-emails = "idr_emails.cli:main"
+
+[tool.setuptools]
+packages = ["idr_emails"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
