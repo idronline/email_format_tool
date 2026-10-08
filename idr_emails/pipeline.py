@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from . import NEWSLETTER_PREF, OUT_COLUMNS
+from . import AUDIENCES, OUT_COLUMNS
 from .checks import apply_typo_fixes, find_suspicious
 from .collector import collect, emails_in_file
 from .reports import report_tables, to_csv_text
@@ -17,6 +17,7 @@ class Run:
     fixed: int
     excluded: int
     suppressed: int
+    audience: str = "english"
 
     @property
     def emails(self):
@@ -38,8 +39,12 @@ class Run:
     def suspicious_count(self):
         return len({r[0] for r in self.suspicious})
 
+    @property
+    def preference(self):
+        return AUDIENCES[self.audience]
+
     def subscriber_rows(self):
-        return ([e, self.found[e]["first"], self.found[e]["last"], NEWSLETTER_PREF] for e in self.emails)
+        return ([e, self.found[e]["first"], self.found[e]["last"], self.preference] for e in self.emails)
 
     def tables(self):
         """{filename: (header, rows)} for the upload file, the log and every report."""
@@ -53,8 +58,10 @@ class Run:
         return {name: to_csv_text(h, rows) for name, (h, rows) in self.tables().items()}
 
 
-def run(zip_source, exclude_paths=(), fix_typos=False) -> Run:
+def run(zip_source, exclude_paths=(), fix_typos=False, audience="english") -> Run:
     """zip_source is a path or a binary file object. Raises ValueError on an unreadable exclude file."""
+    if audience not in AUDIENCES:
+        raise ValueError(f"Unknown audience {audience!r}; choose one of {', '.join(AUDIENCES)}")
     suppressed = set()
     for path in exclude_paths:
         suppressed |= emails_in_file(path)
@@ -66,4 +73,4 @@ def run(zip_source, exclude_paths=(), fix_typos=False) -> Run:
     for e in excluded:
         del found[e]
 
-    return Run(found, log, stats, suspicious, fixed, len(excluded), len(suppressed))
+    return Run(found, log, stats, suspicious, fixed, len(excluded), len(suppressed), audience)

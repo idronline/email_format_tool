@@ -15,6 +15,7 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
@@ -70,7 +71,8 @@ def index():
 @app.post("/", response_class=HTMLResponse)
 def process(zipfile_: UploadFile = File(..., alias="zipfile"),
             exclude: UploadFile | None = File(None),
-            fix_typos: bool = Form(False)):
+            fix_typos: bool = Form(False),
+            audience: Literal["english", "hindi"] = Form("english")):
     with tempfile.TemporaryDirectory(prefix="idr_emails_") as tmp:
         zpath = Path(tmp) / "input.zip"
         with open(zpath, "wb") as fh:
@@ -86,12 +88,13 @@ def process(zipfile_: UploadFile = File(..., alias="zipfile"),
             excludes.append(epath)
 
         try:
-            r = run(zpath, excludes, fix_typos)
+            r = run(zpath, excludes, fix_typos, audience)
         except ValueError as exc:
             return error(f"Could not read the exclude file: {exc}")
         texts = r.csv_texts()
 
     lines = [
+        ("Audience", audience.title() + ("" if r.preference else " (no newsletter preference)")),
         ("Files read OK", r.ok),
         ("Unique emails", len(r.found)),
         ("Without a name", r.no_name),
@@ -101,7 +104,8 @@ def process(zipfile_: UploadFile = File(..., alias="zipfile"),
         lines.append(("Typos fixed", r.fixed))
     if excludes:
         lines.append(("Excluded (already on list)", r.excluded))
-    rows = "".join(f"<tr><td>{html.escape(k)}</td><td class='text-right'>{v}</td></tr>" for k, v in lines)
+    rows = "".join(f"<tr><td>{html.escape(k)}</td><td class='text-right'>{html.escape(str(v))}</td></tr>"
+                   for k, v in lines)
 
     bad = ""
     if r.bad:
@@ -110,11 +114,12 @@ def process(zipfile_: UploadFile = File(..., alias="zipfile"),
         bad = (f'<div class="alert alert-warning small"><b>{len(r.bad)} file(s) skipped or failed</b>'
                f'<ul class="mb-0 pl-3">{items}</ul></div>')
 
+    out_name = f"subscribers_{audience}.csv"
     reports = "".join(download_link(n, texts[n], label) for n, label in REPORTS)
     return page(
         '<hr class="mt-5"><h4 class="mb-3">Result</h4>'
         f'<table class="table table-sm">{rows}</table>{bad}'
-        + download_link("subscribers.csv", texts["subscribers.csv"], "Download subscribers.csv", primary=True)
+        + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", primary=True)
         + f'<p class="mb-1 mt-3 text-muted">Reports</p>{reports}<div class="mb-5"></div>'
     )
 

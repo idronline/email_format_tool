@@ -3,6 +3,7 @@
 import argparse
 from pathlib import Path
 
+from . import AUDIENCES
 from .pipeline import run
 from .reports import write_csv
 
@@ -20,10 +21,13 @@ def main(argv=None):
                     help="rewrite likely domain typos (e.g. gmial.com -> gmail.com) in the output")
     ap.add_argument("--exclude", metavar="FILE", action="append", default=[],
                     help="suppression list: drop every email found in FILE (csv/xlsx/docx/zip). Repeatable")
+    ap.add_argument("--audience", choices=list(AUDIENCES), default="english",
+                    help="english: Newsletter Preference is 'The IDR Weekly||Off The Record' (default); "
+                         "hindi: Newsletter Preference is left blank")
     args = ap.parse_args(argv)
 
     try:
-        r = run(args.zipfile, args.exclude, args.fix_typos)
+        r = run(args.zipfile, args.exclude, args.fix_typos, args.audience)
     except ValueError as exc:
         raise SystemExit(str(exc))
 
@@ -31,6 +35,7 @@ def main(argv=None):
     write_csv(args.output, *tables["subscribers.csv"])
     write_csv(args.log, *tables["collect_emails_log.csv"])
 
+    print(f"Audience      : {r.audience} (Newsletter Preference: {r.preference or 'blank'})")
     print(f"Files read OK : {r.ok}")
     print(f"Unique emails : {len(r.found)}  ->  {args.output}")
     print(f"Per-file log  : {args.log}")

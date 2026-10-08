@@ -33,7 +33,7 @@ def test_upload_returns_subscribers_csv():
     r = post({"zipfile": ("in.zip", z, "application/zip")})
     assert r.status_code == 200
     out = downloads(r.text)
-    lines = out["subscribers.csv"].splitlines()
+    lines = out["subscribers_english.csv"].splitlines()
     assert lines[0] == ",".join(HEADER)
     assert lines[1] == f"ada@example.com,Ada,Lovelace,{PREF}"
     assert {"collect_emails_log.csv", "missing_names.csv", "per_file_summary.csv",
@@ -45,14 +45,23 @@ def test_fix_typos_and_exclude():
     z = make_zip({"a.csv": "email\nann@gmial.com\nold@example.com\nnew@example.com\n"})
     r = post({"zipfile": ("in.zip", z), "exclude": ("existing.csv", b"email\nold@example.com\n")},
              {"fix_typos": "true"})
-    emails = [l.split(",")[0] for l in downloads(r.text)["subscribers.csv"].splitlines()[1:]]
+    emails = [l.split(",")[0] for l in downloads(r.text)["subscribers_english.csv"].splitlines()[1:]]
     assert emails == ["ann@gmail.com", "new@example.com"]
+
+
+def test_audience_dropdown():
+    z = make_zip({"a.csv": "email\nx@example.com\n"})
+    out = downloads(post({"zipfile": ("in.zip", z)}, {"audience": "hindi"}).text)
+    assert out["subscribers_hindi.csv"].splitlines() == [",".join(HEADER), "x@example.com,,,"]
+    out = downloads(post({"zipfile": ("in.zip", z)}).text)  # default is English
+    assert out["subscribers_english.csv"].splitlines()[1] == f"x@example.com,,,{PREF}"
+    assert post({"zipfile": ("in.zip", z)}, {"audience": "tamil"}).status_code == 422
 
 
 def test_empty_optional_exclude_field_is_ignored():
     z = make_zip({"a.csv": "email\nx@example.com\n"})
     r = post({"zipfile": ("in.zip", z), "exclude": ("", b"")})
-    assert "x@example.com" in downloads(r.text)["subscribers.csv"]
+    assert "x@example.com" in downloads(r.text)["subscribers_english.csv"]
 
 
 @pytest.mark.parametrize("files, message", [
@@ -62,7 +71,7 @@ def test_empty_optional_exclude_field_is_ignored():
 ])
 def test_errors_are_shown(files, message):
     r = post(files)
-    assert r.status_code == 200 and message in r.text and "subscribers.csv" not in downloads(r.text)
+    assert r.status_code == 200 and message in r.text and not any(n.startswith("subscribers") for n in downloads(r.text))
 
 
 def test_login_when_configured(monkeypatch):

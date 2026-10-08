@@ -14,7 +14,13 @@ subhaoi@gmail.com,Subhash,S,The IDR Weekly||Off The Record
 
 - `email`: lowercased, deduplicated, sorted.
 - `First Name` / `Last Name`: taken from the source when it has them, otherwise blank.
-- `Newsletter Preference`: always `The IDR Weekly||Off The Record`.
+- `Newsletter Preference` depends on the audience, picked per run (English and Hindi lists come
+  in separate zips and are processed separately):
+
+  | Audience | Newsletter Preference | Web download | CLI |
+  |---|---|---|---|
+  | English (default) | `The IDR Weekly||Off The Record` | `subscribers_english.csv` | `--audience english` |
+  | Hindi | blank | `subscribers_hindi.csv` | `--audience hindi` |
 
 ## Setup
 
@@ -31,8 +37,8 @@ pip install -r requirements-dev.txt     # runtime deps + pytest
 uvicorn idr_emails.web:app --host 0.0.0.0 --port 5002
 ```
 
-Open `http://localhost:5002`, upload the zip, optionally add an existing list to exclude and
-tick "Fix common domain typos", then click **Download subscribers.csv**. The reports are
+Open `http://localhost:5002`, choose the audience (English / Hindi), upload the zip, optionally add an existing list to exclude and
+tick "Fix common domain typos", then click **Download subscribers_english.csv** (or `_hindi`). The reports are
 offered as downloads on the same page.
 
 - Uploads are processed in a temporary folder that is deleted straight away. Results are

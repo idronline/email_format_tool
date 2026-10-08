@@ -9,6 +9,13 @@ def test_output_format_is_exact(run_cli):
     assert res.rows[1] == ["ada@example.com", "Ada", "Lovelace", PREF]
 
 
+def test_hindi_audience_has_blank_preference(run_cli):
+    res = run_cli({"a.csv": "email,first name\nx@example.com,Asha\n"}, "--audience", "hindi")
+    assert res.header == HEADER
+    assert res.rows[1] == ["x@example.com", "Asha", "", ""]
+    assert "Audience      : hindi" in res.stdout
+
+
 def test_csv_with_header(run_cli):
     csv_text = (
         "Timestamp,Given Name,Surname,E-mail Address\n"
