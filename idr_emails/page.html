@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Email Collector App</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+          <div class="text-center">
+            <img src="https://idronline.org/wp-content/uploads/2020/12/idr-logo-without-tagline-sm.png" width="180" height="125" alt="Logo" class="mt-5 mb-5"/>
+          </div>
+          <h1 class="mt-5 mb-4">Collect subscriber emails</h1>
+          <p class="text-muted">Upload a zip of folders with csv / xlsx files. You get one CSV in the
+            subscriber upload format: <code>email,First Name,Last Name,Newsletter Preference</code>.</p>
+          <form method="post" enctype="multipart/form-data" id="uploadForm">
+            <div class="form-group">
+              <label for="zipfile">Zip file</label>
+              <input class="form-control-file" id="zipfile" name="zipfile" required type="file" accept=".zip">
+            </div>
+            <div class="form-group">
+              <label for="exclude">Existing list to exclude (optional, csv / xlsx)</label>
+              <input class="form-control-file" id="exclude" name="exclude" type="file" accept=".csv,.xlsx,.xlsm,.zip">
+            </div>
+            <div class="form-group form-check">
+              <input class="form-check-input" id="fix_typos" name="fix_typos" type="checkbox" value="true">
+              <label class="form-check-label" for="fix_typos">Fix common domain typos (e.g. gmial.com &rarr; gmail.com)</label>
+            </div>
+            <button type="submit" class="btn btn-primary" id="submitButton">Collect emails</button>
+            <button class="btn btn-secondary d-none" id="processingButton" disabled>Processing...</button>
+          </form>
+          <!-- RESULT -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.getElementById('uploadForm').addEventListener('submit', function() {
+        document.getElementById('submitButton').classList.add('d-none');
+        document.getElementById('processingButton').classList.remove('d-none');
+      });
+    </script>
+  </body>
+</html>

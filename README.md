@@ -25,7 +25,22 @@ pip install -r requirements-dev.txt     # runtime deps + pytest
 # optional: pip install -e .            # adds a `collect-emails` command
 ```
 
-## Usage
+## Web app
+
+```bash
+uvicorn idr_emails.web:app --host 0.0.0.0 --port 5002
+```
+
+Open `http://localhost:5002`, upload the zip, optionally add an existing list to exclude and
+tick "Fix common domain typos", then click **Download subscribers.csv**. The reports are
+offered as downloads on the same page.
+
+- Uploads are processed in a temporary folder that is deleted straight away. Results are
+  embedded in the response page, so the server never keeps personal data.
+- Set `APP_USERNAME` and `APP_PASSWORD` in the environment to require a browser login
+  (HTTP basic auth). Without them the page is open to anyone who can reach the port.
+
+## Command line
 
 ```bash
 python collect_emails.py data.zip -o subscribers.csv [--log collect_emails_log.csv]
@@ -107,7 +122,9 @@ python -m pytest -q
 ```
 collect_emails.py      thin entry point (keeps the original command)
 idr_emails/
-  cli.py               argument parsing, writing outputs, terminal summary
+  cli.py               command line: argument parsing, writing files, terminal summary
+  web.py, page.html    FastAPI web app (same pipeline, downloads in the browser)
+  pipeline.py          one full run: collect -> check -> fix typos -> exclude
   collector.py         zip walking, per-file dispatch, dedupe/merge
   readers.py           bytes -> rows (csv, xlsx, encodings)
   extract.py           email regex, header detection, name cleaning
