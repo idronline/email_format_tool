@@ -4,11 +4,12 @@ import io
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from .extract import extract_from_rows
-from .readers import rows_from_csv, sheets_from_excel
+from .extract import EMAIL_RE, clean_email, extract_from_rows
+from .readers import docx_tables_and_text, rows_from_csv, sheets_from_excel
 
 CSV_EXTS = {".csv"}
 EXCEL_EXTS = {".xlsx", ".xlsm"}
+DOCX_EXTS = {".docx"}
 
 
 def hits_from_file(data: bytes, ext: str):
@@ -17,7 +18,18 @@ def hits_from_file(data: bytes, ext: str):
         return extract_from_rows(rows_from_csv(data))
     if ext in EXCEL_EXTS:
         return (hit for _sheet, rows in sheets_from_excel(data) for hit in extract_from_rows(rows))
+    if ext in DOCX_EXTS:
+        return docx_hits(data)
     return None
+
+
+def docx_hits(data: bytes):
+    """Tables get header/name detection like a spreadsheet; other text gives emails only."""
+    tables, text = docx_tables_and_text(data)
+    for rows in tables:
+        yield from extract_from_rows(rows)
+    for e in EMAIL_RE.findall(text):
+        yield clean_email(e), "", ""
 
 
 def process_zip(zf: zipfile.ZipFile, prefix, found, log, stats=None):

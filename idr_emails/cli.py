@@ -10,7 +10,7 @@ REPORT_NAMES = ["missing_names.csv", "per_file_summary.csv", "suspicious_emails.
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Collect emails from a zip of csv/xlsx files.")
+    ap = argparse.ArgumentParser(description="Collect emails from a zip of csv/xlsx/docx files.")
     ap.add_argument("zipfile", help="path to the input .zip")
     ap.add_argument("-o", "--output", default="subscribers.csv", help="output CSV (default: subscribers.csv)")
     ap.add_argument("--log", default="collect_emails_log.csv", help="per-file log (default: collect_emails_log.csv)")
@@ -19,7 +19,7 @@ def main(argv=None):
     ap.add_argument("--fix-typos", action="store_true",
                     help="rewrite likely domain typos (e.g. gmial.com -> gmail.com) in the output")
     ap.add_argument("--exclude", metavar="FILE", action="append", default=[],
-                    help="suppression list: drop every email found in FILE (csv/xlsx/zip). Repeatable")
+                    help="suppression list: drop every email found in FILE (csv/xlsx/docx/zip). Repeatable")
     args = ap.parse_args(argv)
 
     try:

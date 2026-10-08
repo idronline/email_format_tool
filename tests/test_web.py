@@ -29,7 +29,7 @@ def test_form_page():
 
 def test_upload_returns_subscribers_csv():
     z = make_zip({"a/b.csv": "Email,First Name,Last Name\nAda@Example.com,ada,lovelace\n",
-                  "notes.docx": b"PK"})
+                  "notes.pdf": b"%PDF-1.4"})
     r = post({"zipfile": ("in.zip", z, "application/zip")})
     assert r.status_code == 200
     out = downloads(r.text)
@@ -38,7 +38,7 @@ def test_upload_returns_subscribers_csv():
     assert lines[1] == f"ada@example.com,Ada,Lovelace,{PREF}"
     assert {"collect_emails_log.csv", "missing_names.csv", "per_file_summary.csv",
             "suspicious_emails.csv"} <= set(out)
-    assert "skipped or failed" in r.text and "notes.docx" in r.text
+    assert "skipped or failed" in r.text and "notes.pdf" in r.text
 
 
 def test_fix_typos_and_exclude():

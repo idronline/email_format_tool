@@ -1,6 +1,6 @@
 # email_format_tool
 
-Turns a zip of folders of CSV / XLSX files (collected by non-technical people) into **one clean CSV**
+Turns a zip of folders of CSV / XLSX / DOCX files (collected by non-technical people) into **one clean CSV**
 in the IDR newsletter-subscriber upload format.
 
 ## Output format
@@ -83,7 +83,7 @@ Skipped and failed files are also printed to the terminal. One bad file never st
 python collect_emails.py data.zip -o subscribers.csv --exclude existing_list.csv [--exclude more.xlsx]
 ```
 
-Every email found in an `--exclude` file (csv, xlsx or a zip of them; the column name
+Every email found in an `--exclude` file (csv, xlsx, docx or a zip of them; the column name
 doesn't matter) is left out of `subscribers.csv`. Typo fixes are applied first, so a corrected
 address that is already on the list is also dropped. If a suppression file can't be read, the
 run stops without writing output, so you never get an unsuppressed list by accident.
@@ -93,7 +93,9 @@ run stops without writing output, so you never get an unsuppressed list by accid
 - Every folder in the zip, including **nested zips**. It skips `__MACOSX/`, dotfiles and `~$` Office lock files.
 - **csv**: sniffs the delimiter (`,` `;` tab `|`) and tries several encodings.
 - **xlsx / xlsm**: all sheets.
-- Anything else (docx, pdf, images...) is logged as `SKIPPED` and listed in the terminal.
+- **docx**: tables get the same header/name detection as spreadsheets; emails anywhere else
+  (paragraph lists, headers, footers) are picked up without names.
+- Anything else (pdf, images, old .doc...) is logged as `SKIPPED` and listed in the terminal.
 
 How emails and names are found:
 
@@ -126,7 +128,7 @@ idr_emails/
   web.py, page.html    FastAPI web app (same pipeline, downloads in the browser)
   pipeline.py          one full run: collect -> check -> fix typos -> exclude
   collector.py         zip walking, per-file dispatch, dedupe/merge
-  readers.py           bytes -> rows (csv, xlsx, encodings)
+  readers.py           bytes -> rows (csv, xlsx, docx, encodings)
   extract.py           email regex, header detection, name cleaning
   checks.py            suspicious-address checks, typo fixes
   reports.py           optional side reports (--report-dir)

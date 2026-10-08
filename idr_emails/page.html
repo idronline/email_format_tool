@@ -14,7 +14,7 @@
             <img src="https://idronline.org/wp-content/uploads/2020/12/idr-logo-without-tagline-sm.png" width="180" height="125" alt="Logo" class="mt-5 mb-5"/>
           </div>
           <h1 class="mt-5 mb-4">Collect subscriber emails</h1>
-          <p class="text-muted">Upload a zip of folders with csv / xlsx files. You get one CSV in the
+          <p class="text-muted">Upload a zip of folders with csv / xlsx / docx files. You get one CSV in the
             subscriber upload format: <code>email,First Name,Last Name,Newsletter Preference</code>.</p>
           <form method="post" enctype="multipart/form-data" id="uploadForm">
             <div class="form-group">
@@ -22,8 +22,8 @@
               <input class="form-control-file" id="zipfile" name="zipfile" required type="file" accept=".zip">
             </div>
             <div class="form-group">
-              <label for="exclude">Existing list to exclude (optional, csv / xlsx)</label>
-              <input class="form-control-file" id="exclude" name="exclude" type="file" accept=".csv,.xlsx,.xlsm,.zip">
+              <label for="exclude">Existing list to exclude (optional, csv / xlsx / docx)</label>
+              <input class="form-control-file" id="exclude" name="exclude" type="file" accept=".csv,.xlsx,.xlsm,.docx,.zip">
             </div>
             <div class="form-group form-check">
               <input class="form-check-input" id="fix_typos" name="fix_typos" type="checkbox" value="true">

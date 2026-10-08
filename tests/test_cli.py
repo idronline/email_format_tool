@@ -1,6 +1,6 @@
 """End-to-end tests: build a synthetic zip, run the CLI, inspect the output CSV."""
 
-from conftest import HEADER, PREF, make_xlsx, make_zip, read_csv
+from conftest import HEADER, PREF, make_docx, make_xlsx, make_zip, read_csv
 
 
 def test_output_format_is_exact(run_cli):
@@ -54,6 +54,21 @@ def test_nested_zip(run_cli):
     assert res.status_of("inner.zip!/deep/list.csv") == ["OK"]
 
 
+def test_docx_table_gets_names(run_cli):
+    docx = make_docx(table=[["Full Name", "Email Address"], ["ann lee", "Ann@Example.com"], ["Bob", "bob@example.com"]])
+    res = run_cli({"contacts.docx": docx})
+    assert res.by_email["ann@example.com"][1:3] == ["Ann", "Lee"]
+    assert res.by_email["bob@example.com"][1:3] == ["Bob", ""]
+
+
+def test_docx_paragraph_list(run_cli):
+    docx = make_docx(paragraphs=["Contacts:", "one@example.com", "two@example.org, three@example.net",
+                                 "Write to &lt;office@example.org&gt;"])
+    res = run_cli({"Juhi/contacts.docx": docx})
+    assert set(res.by_email) == {"one@example.com", "two@example.org", "three@example.net", "office@example.org"}
+    assert res.status_of("contacts.docx") == ["OK"]
+
+
 def test_duplicates_across_files_are_merged(run_cli):
     res = run_cli({
         "a.csv": "email\nDup@Example.com\n",
@@ -76,7 +91,8 @@ def test_bad_and_corrupt_files_do_not_stop_the_run(run_cli):
         "broken.xlsx": b"this is not really an excel file",
         "broken.zip": b"PK\x03\x04 garbage",
         "picture.png": b"\x89PNG\r\n\x1a\n",
-        "notes.docx": b"PK",
+        "notes.pdf": b"%PDF-1.4",
+        "broken.docx": b"PK garbage",
         "__MACOSX/._good.csv": "junk@example.com",
         "~$lockfile.xlsx": b"lock",
         ".hidden.csv": "hidden@example.com",
@@ -86,7 +102,8 @@ def test_bad_and_corrupt_files_do_not_stop_the_run(run_cli):
     assert res.status_of("broken.xlsx") == ["ERROR"]
     assert res.status_of("broken.zip") == ["ERROR"]
     assert res.status_of("picture.png") == ["SKIPPED"]
-    assert res.status_of("notes.docx") == ["SKIPPED"]
+    assert res.status_of("notes.pdf") == ["SKIPPED"]
+    assert res.status_of("broken.docx") == ["ERROR"]
     assert res.status_of("__MACOSX") == [] and res.status_of("~$") == []
     assert "skipped or failed" in res.stdout
 
