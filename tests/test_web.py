@@ -27,6 +27,13 @@ def test_form_page():
     assert r.status_code == 200 and 'name="zipfile"' in r.text
 
 
+def test_navbar_links_use_request_host():
+    r = TestClient(app, base_url="http://tools.idronline.org:5002").get("/")
+    for port in (5000, 5001, 5002):
+        assert f'href="//tools.idronline.org:{port}/"' in r.text
+    assert 'href="//tools.idronline.org:5002/" class="active"' in r.text
+
+
 def test_upload_returns_subscribers_csv():
     z = make_zip({"a/b.csv": "Email,First Name,Last Name\nAda@Example.com,ada,lovelace\n",
                   "notes.pdf": b"%PDF-1.4"})
@@ -78,5 +85,6 @@ def test_login_when_configured(monkeypatch):
     monkeypatch.setenv("APP_USERNAME", "idr")
     monkeypatch.setenv("APP_PASSWORD", "secret")
     assert client.get("/").status_code == 401
+    assert client.get("/").headers["www-authenticate"] == 'Basic realm="IDR tools"'
     assert client.get("/", auth=("idr", "wrong")).status_code == 401
     assert client.get("/", auth=("idr", "secret")).status_code == 200

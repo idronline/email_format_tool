@@ -17,13 +17,17 @@ import zipfile
 from pathlib import Path
 from typing import Literal
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from .pipeline import run
 
 PAGE = (Path(__file__).parent / "page.html").read_text(encoding="utf-8")
+NAV = (Path(__file__).parent / "nav.html").read_text(encoding="utf-8")
+# Shared across IDR tools (same list in every tool repo).
+NAV_TOOLS = [("Translate", 5000), ("Audio", 5001), ("Email Collector", 5002)]
+NAV_ACTIVE = "Email Collector"
 REPORTS = [
     ("collect_emails_log.csv", "Per-file log"),
     ("missing_names.csv", "Emails without a name"),
@@ -41,15 +45,24 @@ def check_login(creds: HTTPBasicCredentials | None = Depends(basic)):
     ok = creds is not None and secrets.compare_digest(creds.username, user) \
         and secrets.compare_digest(creds.password, pw)
     if not ok:
-        raise HTTPException(401, "Login required", headers={"WWW-Authenticate": "Basic"})
+        raise HTTPException(401, "Login required", headers={"WWW-Authenticate": 'Basic realm="IDR tools"'})
 
 
 app = FastAPI(title="IDR Email Collector", docs_url=None, redoc_url=None, openapi_url=None,
               dependencies=[Depends(check_login)])
 
 
-def page(result_html=""):
-    return HTMLResponse(PAGE.replace("<!-- RESULT -->", result_html))
+def nav_html(request: Request):
+    host = html.escape(request.url.hostname or "localhost")
+    links = "".join(
+        f'<a href="//{host}:{port}/"' + (' class="active" aria-current="page"' if name == NAV_ACTIVE else "")
+        + f">{html.escape(name)}</a>"
+        for name, port in NAV_TOOLS)
+    return NAV.replace("<!-- LINKS -->", links)
+
+
+def page(request: Request, result_html=""):
+    return HTMLResponse(PAGE.replace("<!-- NAV -->", nav_html(request)).replace("<!-- RESULT -->", result_html))
 
 
 def download_link(name, text, label, primary=False):
@@ -59,17 +72,18 @@ def download_link(name, text, label, primary=False):
             f'href="data:text/csv;charset=utf-8;base64,{data}">{html.escape(label)}</a>')
 
 
-def error(msg):
-    return page(f'<div class="alert alert-danger mt-4">{html.escape(msg)}</div>')
+def error(request, msg):
+    return page(request, f'<div class="alert alert-danger mt-4">{html.escape(msg)}</div>')
 
 
 @app.get("/", response_class=HTMLResponse)
-def index():
-    return page()
+def index(request: Request):
+    return page(request)
 
 
 @app.post("/", response_class=HTMLResponse)
-def process(zipfile_: UploadFile = File(..., alias="zipfile"),
+def process(request: Request,
+            zipfile_: UploadFile = File(..., alias="zipfile"),
             exclude: UploadFile | None = File(None),
             fix_typos: bool = Form(False),
             audience: Literal["english", "hindi"] = Form("english")):
@@ -78,7 +92,7 @@ def process(zipfile_: UploadFile = File(..., alias="zipfile"),
         with open(zpath, "wb") as fh:
             shutil.copyfileobj(zipfile_.file, fh)
         if not zipfile.is_zipfile(zpath):
-            return error(f"{zipfile_.filename} is not a valid zip file.")
+            return error(request, f"{zipfile_.filename} is not a valid zip file.")
 
         excludes = []
         if exclude is not None and exclude.filename:
@@ -90,7 +104,7 @@ def process(zipfile_: UploadFile = File(..., alias="zipfile"),
         try:
             r = run(zpath, excludes, fix_typos, audience)
         except ValueError as exc:
-            return error(f"Could not read the exclude file: {exc}")
+            return error(request, f"Could not read the exclude file: {exc}")
         texts = r.csv_texts()
 
     lines = [
@@ -117,6 +131,7 @@ def process(zipfile_: UploadFile = File(..., alias="zipfile"),
     out_name = f"subscribers_{audience}.csv"
     reports = "".join(download_link(n, texts[n], label) for n, label in REPORTS)
     return page(
+        request,
         '<hr class="mt-5"><h4 class="mb-3">Result</h4>'
         f'<table class="table table-sm">{rows}</table>{bad}'
         + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", primary=True)
