@@ -86,7 +86,7 @@ def collect(zip_path):
 
 
 def emails_in_file(path):
-    """Return the set of emails in one file on disk (any supported type, or a zip)."""
+    """Return the set of emails in one csv/xlsx/zip file on disk. Raises ValueError if unreadable."""
     path = Path(path)
     if path.suffix.lower() == ".zip":
         found, log, _ = collect(path)
@@ -95,12 +95,12 @@ def emails_in_file(path):
         try:
             hits = hits_from_file(path.read_bytes(), path.suffix.lower())
             if hits is None:
-                raise SystemExit(f"Unsupported file type for --exclude: {path}")
+                raise ValueError(f"unsupported type {path.suffix}")
             for e, _f, _l in hits:
                 found[e] = None
         except Exception as exc:
             log.append((str(path), "ERROR", f"{type(exc).__name__}: {exc}"))
     errors = [f"{f}: {d}" for f, s, d in log if s == "ERROR"]
     if errors:
-        raise SystemExit(f"Could not read all of {path}: " + "; ".join(errors))
+        raise ValueError(f"Could not read all of {path.name}: " + "; ".join(errors))
     return set(found)
