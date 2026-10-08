@@ -17,10 +17,8 @@ def main(argv=None):
                     help="also write missing_names.csv, per_file_summary.csv and suspicious_emails.csv into DIR")
     ap.add_argument("--fix-typos", action="store_true",
                     help="rewrite likely domain typos (e.g. gmial.com -> gmail.com) in the output")
-    ap.add_argument("--check-mx", action="store_true",
-                    help="flag domains with no mail server (needs network and dnspython)")
     ap.add_argument("--exclude", metavar="FILE", action="append", default=[],
-                    help="suppression list: drop every email found in FILE (csv/xlsx/txt/zip...). Repeatable")
+                    help="suppression list: drop every email found in FILE (csv/xlsx/zip). Repeatable")
     args = ap.parse_args(argv)
 
     suppressed = set()
@@ -28,7 +26,7 @@ def main(argv=None):
         suppressed |= emails_in_file(path)
 
     found, log, stats = collect(args.zipfile)
-    suspicious = find_suspicious(found, check_mx_records=args.check_mx)
+    suspicious = find_suspicious(found)
     fixed = apply_typo_fixes(found, suspicious) if args.fix_typos else 0
     excluded = [e for e in found if e in suppressed]
     for e in excluded:

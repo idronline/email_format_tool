@@ -37,9 +37,3 @@ def test_apply_typo_fixes_merges_into_existing():
     assert n == 1
     assert found == {"ann@gmail.com": {"first": "Ann", "last": "Lee", "source": "b"}}
 
-
-def test_check_mx_with_injected_lookup():
-    found = {"a@good.org": {"first": "", "last": "", "source": "x"},
-             "b@dead.org": {"first": "", "last": "", "source": "y"}}
-    rows = find_suspicious(found, check_mx_records=True, lookup=lambda d: d == "good.org")
-    assert rows == [("b@dead.org", "domain has no mail server", "", "y")]

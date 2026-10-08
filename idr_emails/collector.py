@@ -4,25 +4,19 @@ import io
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from .extract import emails_in_text, extract_from_rows
-from .readers import decode, rows_from_csv, sheets_from_excel, text_from_docx
+from .extract import extract_from_rows
+from .readers import rows_from_csv, sheets_from_excel
 
-CSV_EXTS = {".csv", ".tsv"}
-EXCEL_EXTS = {".xlsx", ".xlsm", ".xltx", ".xls", ".ods"}
-DOCX_EXTS = {".docx", ".docm"}
-TEXT_EXTS = {".txt", ".json", ".html", ".htm", ".vcf", ".xml", ".md", ".log", ".eml"}
+CSV_EXTS = {".csv"}
+EXCEL_EXTS = {".xlsx", ".xlsm"}
 
 
 def hits_from_file(data: bytes, ext: str):
     """Yield (email, first, last) from one file, or return None if the type is unsupported."""
     if ext in CSV_EXTS:
-        return extract_from_rows(rows_from_csv(data, ext))
+        return extract_from_rows(rows_from_csv(data))
     if ext in EXCEL_EXTS:
         return (hit for _sheet, rows in sheets_from_excel(data) for hit in extract_from_rows(rows))
-    if ext in DOCX_EXTS:
-        return ((e, "", "") for e in emails_in_text(text_from_docx(data)))
-    if ext in TEXT_EXTS or ext == "":
-        return ((e, "", "") for e in emails_in_text(decode(data)))
     return None
 
 

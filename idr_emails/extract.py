@@ -30,12 +30,6 @@ def clean_email(e: str) -> str:
     return e.strip().strip(".,;:'\"<>()[]").lower()
 
 
-def emails_in_text(text: str):
-    """Yield cleaned emails found anywhere in free text."""
-    for e in EMAIL_RE.findall(text):
-        yield clean_email(e)
-
-
 def find_header(rows):
     """Return (header_index, first_idx, last_idx, full_idx) or None if no header found."""
     for i, row in enumerate(rows[:10]):

@@ -1,6 +1,6 @@
 # email_format_tool
 
-Turns a zip of messy files (collected by non-technical people) into **one clean CSV**
+Turns a zip of folders of CSV / XLSX files (collected by non-technical people) into **one clean CSV**
 in the IDR newsletter-subscriber upload format.
 
 ## Output format
@@ -56,8 +56,6 @@ Every run counts suspicious addresses. The details go to `suspicious_emails.csv`
   or one edit away from a popular provider (`gmai.com`). A suggestion is given.
 - **placeholder/test address**: `noreply@`, `test@`, `example.com` and similar.
 - **malformed local part**: `..`, or a leading or trailing dot.
-- **domain has no mail server**: only with `--check-mx`. Needs network access and
-  `pip install dnspython` (or `pip install -e .[mx]`). Only domain names are looked up.
 
 `--fix-typos` rewrites typo domains to the suggestion in `subscribers.csv`, merging names if
 the corrected address already exists. Without it, nothing is changed, only reported.
@@ -70,7 +68,7 @@ Skipped and failed files are also printed to the terminal. One bad file never st
 python collect_emails.py data.zip -o subscribers.csv --exclude existing_list.csv [--exclude more.xlsx]
 ```
 
-Every email found in an `--exclude` file (any supported format, or a zip; the column name
+Every email found in an `--exclude` file (csv, xlsx or a zip of them; the column name
 doesn't matter) is left out of `subscribers.csv`. Typo fixes are applied first, so a corrected
 address that is already on the list is also dropped. If a suppression file can't be read, the
 run stops without writing output, so you never get an unsuppressed list by accident.
@@ -78,10 +76,9 @@ run stops without writing output, so you never get an unsuppressed list by accid
 ## What it reads
 
 - Every folder in the zip, including **nested zips**. It skips `__MACOSX/`, dotfiles and `~$` Office lock files.
-- **csv / tsv**: sniffs the delimiter (`,` `;` tab `|`) and tries several encodings.
-- **xlsx / xlsm / xltx / xls / ods**: all sheets.
-- **docx / docm**: body, tables, headers/footers and `mailto:` links (stdlib only).
-- **txt / json / html / htm / vcf / xml / md / log / eml** and extension-less files: regex scan.
+- **csv**: sniffs the delimiter (`,` `;` tab `|`) and tries several encodings.
+- **xlsx / xlsm**: all sheets.
+- Anything else (docx, pdf, images...) is logged as `SKIPPED` and listed in the terminal.
 
 How emails and names are found:
 
@@ -112,9 +109,9 @@ collect_emails.py      thin entry point (keeps the original command)
 idr_emails/
   cli.py               argument parsing, writing outputs, terminal summary
   collector.py         zip walking, per-file dispatch, dedupe/merge
-  readers.py           bytes -> rows / text (csv, excel, docx, encodings)
+  readers.py           bytes -> rows (csv, xlsx, encodings)
   extract.py           email regex, header detection, name cleaning
-  checks.py            suspicious-address checks, typo fixes, optional MX lookup
+  checks.py            suspicious-address checks, typo fixes
   reports.py           optional side reports (--report-dir)
 tests/                 pytest, synthetic fixtures only
 ```

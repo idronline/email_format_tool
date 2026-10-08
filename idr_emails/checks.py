@@ -79,51 +79,12 @@ def issues_for(email: str):
         yield "possible domain typo", f"{local}@{fixed}"
 
 
-def check_mx(domains, lookup=None):
-    """Return the set of domains with no MX (or A) record.
-
-    `lookup(domain) -> bool` can be injected for tests; the default uses dnspython.
-    """
-    if lookup is None:
-        lookup = _dns_lookup()
-    return {d for d in sorted(set(domains)) if not lookup(d)}
-
-
-def _dns_lookup():
-    try:
-        import dns.exception
-        import dns.resolver
-    except ImportError:
-        raise SystemExit("--check-mx needs dnspython: pip install dnspython")
-
-    resolver = dns.resolver.Resolver()
-    resolver.lifetime = 5.0
-
-    def lookup(domain):
-        for rtype in ("MX", "A"):
-            try:
-                resolver.resolve(domain, rtype)
-                return True
-            except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
-                continue
-            except dns.exception.Timeout:
-                return True  # can't tell - don't flag on a flaky network
-        return False
-
-    return lookup
-
-
-def find_suspicious(found, check_mx_records=False, lookup=None):
+def find_suspicious(found):
     """Return a list of (email, issue, suggestion, source) rows, sorted by email."""
     rows = []
     for e in sorted(found):
         for issue, suggestion in issues_for(e):
             rows.append((e, issue, suggestion, found[e]["source"]))
-    if check_mx_records:
-        dead = check_mx((e.rpartition("@")[2] for e in found), lookup)
-        rows.extend((e, "domain has no mail server", "", found[e]["source"])
-                    for e in sorted(found) if e.rpartition("@")[2] in dead)
-        rows.sort(key=lambda r: r[0])
     return rows
 
 

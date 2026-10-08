@@ -36,23 +36,6 @@ def make_xlsx(sheets: dict) -> bytes:
     return buf.getvalue()
 
 
-def make_docx(paragraphs=(), table=()) -> bytes:
-    """Minimal hand-built .docx with optional paragraphs and one table."""
-    ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
-    body = "".join(f"<w:p><w:r><w:t>{p}</w:t></w:r></w:p>" for p in paragraphs)
-    if table:
-        rows = "".join(
-            "<w:tr>" + "".join(f"<w:tc><w:p><w:r><w:t>{c}</w:t></w:r></w:p></w:tc>" for c in row) + "</w:tr>"
-            for row in table
-        )
-        body += f"<w:tbl>{rows}</w:tbl>"
-    doc = f'<?xml version="1.0" encoding="UTF-8"?><w:document {ns}><w:body>{body}</w:body></w:document>'
-    return make_zip({
-        "[Content_Types].xml": '<?xml version="1.0"?><Types/>',
-        "word/document.xml": doc,
-    })
-
-
 class Result:
     def __init__(self, proc, out, log):
         self.proc = proc

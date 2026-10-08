@@ -1,6 +1,6 @@
 """End-to-end tests: build a synthetic zip, run the CLI, inspect the output CSV."""
 
-from conftest import HEADER, PREF, make_docx, make_xlsx, make_zip, read_csv
+from conftest import HEADER, PREF, make_xlsx, make_zip, read_csv
 
 
 def test_output_format_is_exact(run_cli):
@@ -48,19 +48,10 @@ def test_xlsx_full_name_is_split(run_cli):
 
 def test_nested_zip(run_cli):
     inner = make_zip({"deep/list.csv": "email,first name\nnested@example.com,Nadia\n"})
-    res = run_cli({"outer/inner.zip": inner, "top.txt": "contact top@example.com please"})
+    res = run_cli({"outer/inner.zip": inner, "top.csv": "top@example.com\n"})
     assert res.by_email["nested@example.com"][1] == "Nadia"
     assert "top@example.com" in res.by_email
     assert res.status_of("inner.zip!/deep/list.csv") == ["OK"]
-
-
-def test_docx_table_and_body(run_cli):
-    docx = make_docx(
-        paragraphs=["Write to office@example.org for details."],
-        table=[["Name", "Email"], ["Ann", "ann@example.com"], ["Bob", "bob@example.com"]],
-    )
-    res = run_cli({"notes.docx": docx})
-    assert {"office@example.org", "ann@example.com", "bob@example.com"} <= set(res.by_email)
 
 
 def test_duplicates_across_files_are_merged(run_cli):
@@ -85,6 +76,7 @@ def test_bad_and_corrupt_files_do_not_stop_the_run(run_cli):
         "broken.xlsx": b"this is not really an excel file",
         "broken.zip": b"PK\x03\x04 garbage",
         "picture.png": b"\x89PNG\r\n\x1a\n",
+        "notes.docx": b"PK",
         "__MACOSX/._good.csv": "junk@example.com",
         "~$lockfile.xlsx": b"lock",
         ".hidden.csv": "hidden@example.com",
@@ -94,6 +86,7 @@ def test_bad_and_corrupt_files_do_not_stop_the_run(run_cli):
     assert res.status_of("broken.xlsx") == ["ERROR"]
     assert res.status_of("broken.zip") == ["ERROR"]
     assert res.status_of("picture.png") == ["SKIPPED"]
+    assert res.status_of("notes.docx") == ["SKIPPED"]
     assert res.status_of("__MACOSX") == [] and res.status_of("~$") == []
     assert "skipped or failed" in res.stdout
 
@@ -107,16 +100,16 @@ def test_non_utf8_csv(run_cli):
 def test_reports_missing_names_and_per_file_summary(run_cli, tmp_path):
     res = run_cli({
         "a.csv": "email,first name\nnamed@example.com,Nia\nanon@example.com,\n",
-        "b.txt": "anon@example.com and other@example.org",
+        "b.csv": "anon@example.com,other@example.org\n",
     }, "--report-dir", str(tmp_path / "rep"))
     assert res.header == HEADER  # upload format untouched
     missing = read_csv(tmp_path / "rep" / "missing_names.csv")
     assert missing == [["email", "source file"],
-                       ["anon@example.com", "a.csv"], ["other@example.org", "b.txt"]]
+                       ["anon@example.com", "a.csv"], ["other@example.org", "b.csv"]]
     summary = {r[0]: r[1:] for r in read_csv(tmp_path / "rep" / "per_file_summary.csv")}
     assert summary["file"] == ["emails found", "with name", "new unique"]
     assert summary["a.csv"] == ["2", "1", "2"]
-    assert summary["b.txt"] == ["2", "0", "1"]
+    assert summary["b.csv"] == ["2", "0", "1"]
     assert "Without a name: 2" in res.stdout
 
 
