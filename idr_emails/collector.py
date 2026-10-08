@@ -26,7 +26,11 @@ def hits_from_file(data: bytes, ext: str):
     return None
 
 
-def process_zip(zf: zipfile.ZipFile, prefix, found, log):
+def process_zip(zf: zipfile.ZipFile, prefix, found, log, stats=None):
+    """Add every email in zf to `found`; append (file, status, detail) to `log`.
+
+    If `stats` is a list, also append one dict of counts per file read OK.
+    """
     for info in zf.infolist():
         if info.is_dir():
             continue
@@ -43,7 +47,7 @@ def process_zip(zf: zipfile.ZipFile, prefix, found, log):
 
             if ext == ".zip":
                 with zipfile.ZipFile(io.BytesIO(data)) as inner:
-                    process_zip(inner, label + "!/", found, log)
+                    process_zip(inner, label + "!/", found, log, stats)
                 continue
 
             hits = hits_from_file(data, ext)
@@ -52,21 +56,26 @@ def process_zip(zf: zipfile.ZipFile, prefix, found, log):
                 continue
 
             count_before = len(found)
-            raw_hits = 0
+            raw_hits = named_hits = 0
             for e, f, l in hits:
                 raw_hits += 1
-                add(found, e, f, l)
+                named_hits += bool(f or l)
+                add(found, e, f, l, label)
 
-            log.append((label, "OK", f"{raw_hits} emails found, {len(found) - count_before} new"))
+            new = len(found) - count_before
+            log.append((label, "OK", f"{raw_hits} emails found, {new} new"))
+            if stats is not None:
+                stats.append({"file": label, "emails_found": raw_hits,
+                              "with_name": named_hits, "new_unique": new})
 
         except Exception as exc:  # keep going whatever happens to one file
             log.append((label, "ERROR", f"{type(exc).__name__}: {exc}"))
 
 
-def add(found, email, first, last):
+def add(found, email, first, last, source=""):
     rec = found.get(email)
     if rec is None:
-        found[email] = {"first": first, "last": last}
+        found[email] = {"first": first, "last": last, "source": source}
     else:  # fill in missing names from later duplicates
         if not rec["first"] and first:
             rec["first"] = first
@@ -75,8 +84,8 @@ def add(found, email, first, last):
 
 
 def collect(zip_path):
-    """Return (found, log) for a zip on disk."""
-    found, log = {}, []
+    """Return (found, log, stats) for a zip on disk."""
+    found, log, stats = {}, [], []
     with zipfile.ZipFile(zip_path) as zf:
-        process_zip(zf, "", found, log)
-    return found, log
+        process_zip(zf, "", found, log, stats)
+    return found, log, stats

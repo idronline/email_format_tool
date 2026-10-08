@@ -40,6 +40,13 @@ Writes:
 | `subscribers.csv` | the upload file (format above) |
 | `collect_emails_log.csv` | one row per file read: `file,status,detail` (`OK` / `SKIPPED` / `ERROR`) |
 
+With `--report-dir DIR` it also writes (never committed, these contain personal data):
+
+| File | Contents |
+|---|---|
+| `DIR/missing_names.csv` | `email,source file` for every email that ended up with no name |
+| `DIR/per_file_summary.csv` | `file,emails found,with name,new unique` per file read |
+
 Skipped and failed files are also printed to the terminal. One bad file never stops the run.
 
 ## What it reads
@@ -81,5 +88,6 @@ idr_emails/
   collector.py         zip walking, per-file dispatch, dedupe/merge
   readers.py           bytes -> rows / text (csv, excel, docx, encodings)
   extract.py           email regex, header detection, name cleaning
+  reports.py           optional side reports (--report-dir)
 tests/                 pytest, synthetic fixtures only
 ```

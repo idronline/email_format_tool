@@ -1,6 +1,6 @@
 """End-to-end tests: build a synthetic zip, run the CLI, inspect the output CSV."""
 
-from conftest import HEADER, PREF, make_docx, make_xlsx, make_zip
+from conftest import HEADER, PREF, make_docx, make_xlsx, make_zip, read_csv
 
 
 def test_output_format_is_exact(run_cli):
@@ -102,3 +102,24 @@ def test_non_utf8_csv(run_cli):
     data = "email,first name\nzoe@example.com,Zoë\n".encode("cp1252")
     res = run_cli({"latin.csv": data})
     assert res.by_email["zoe@example.com"][1] == "Zoë"
+
+
+def test_reports_missing_names_and_per_file_summary(run_cli, tmp_path):
+    res = run_cli({
+        "a.csv": "email,first name\nnamed@example.com,Nia\nanon@example.com,\n",
+        "b.txt": "anon@example.com and other@example.org",
+    }, "--report-dir", str(tmp_path / "rep"))
+    assert res.header == HEADER  # upload format untouched
+    missing = read_csv(tmp_path / "rep" / "missing_names.csv")
+    assert missing == [["email", "source file"],
+                       ["anon@example.com", "a.csv"], ["other@example.org", "b.txt"]]
+    summary = {r[0]: r[1:] for r in read_csv(tmp_path / "rep" / "per_file_summary.csv")}
+    assert summary["file"] == ["emails found", "with name", "new unique"]
+    assert summary["a.csv"] == ["2", "1", "2"]
+    assert summary["b.txt"] == ["2", "0", "1"]
+    assert "Without a name: 2" in res.stdout
+
+
+def test_no_reports_by_default(run_cli, tmp_path):
+    run_cli({"a.csv": "email\nx@example.com\n"})
+    assert not (tmp_path / "missing_names.csv").exists()

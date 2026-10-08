@@ -88,3 +88,8 @@ def run_cli(tmp_path):
         assert proc.returncode == 0, proc.stderr
         return Result(proc, out, log)
     return _run
+
+
+def read_csv(path):
+    with open(path, newline="", encoding="utf-8") as fh:
+        return list(csv.reader(fh))
