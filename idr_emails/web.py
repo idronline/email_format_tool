@@ -28,7 +28,12 @@ HERE = Path(__file__).parent
 PAGE = (HERE / "page.html").read_text(encoding="utf-8")
 NAV = (HERE / "nav.html").read_text(encoding="utf-8")
 # Shared across IDR tools (same list in every tool repo).
-NAV_TOOLS = [("Translate", 5000), ("Audio", 5001), ("Email Collector", 5002)]
+NAV_TOOLS = [
+    ("Translate", "http://tools.idronline.org:5000/"),
+    ("Audio", "http://tools.idronline.org:5001/"),
+    ("Email Collector", "http://tools.idronline.org:5002/"),
+    ("Image Search", "http://api.idronline.org:5000/"),
+]
 NAV_ACTIVE = "Email Collector"
 REPORTS = [
     ("collect_emails_log.csv", "Per-file log"),
@@ -58,17 +63,16 @@ app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 esc = html.escape
 
 
-def nav_html(request: Request):
-    host = esc(request.url.hostname or "localhost")
+def nav_html():
     links = "".join(
-        f'<a href="//{host}:{port}/"' + (' class="active" aria-current="page"' if name == NAV_ACTIVE else "")
+        f'<a href="{url}"' + (' class="active" aria-current="page"' if name == NAV_ACTIVE else "")
         + f">{esc(name)}</a>"
-        for name, port in NAV_TOOLS)
+        for name, url in NAV_TOOLS)
     return NAV.replace("<!-- LINKS -->", links)
 
 
 def page(request: Request, result_html="", again=False):
-    out = PAGE.replace("<!-- NAV -->", nav_html(request)).replace("<!-- RESULT -->", result_html)
+    out = PAGE.replace("<!-- NAV -->", nav_html()).replace("<!-- RESULT -->", result_html)
     if again:
         out = out.replace('<p class="card-note hidden" id="again">', '<p class="card-note" id="again">')
     return HTMLResponse(out)

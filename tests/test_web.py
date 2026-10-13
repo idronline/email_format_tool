@@ -45,11 +45,12 @@ def test_shared_static_files_are_served():
     assert "data-working" in client.get("/static/idr-tools.js").text
 
 
-def test_navbar_links_use_request_host():
-    r = TestClient(app, base_url="http://tools.idronline.org:5002").get("/")
+def test_navbar_links_to_all_tools():
+    r = client.get("/")
     for port in (5000, 5001, 5002):
-        assert f'href="//tools.idronline.org:{port}/"' in r.text
-    assert 'href="//tools.idronline.org:5002/" class="active"' in r.text
+        assert f'href="http://tools.idronline.org:{port}/"' in r.text
+    assert 'href="http://api.idronline.org:5000/">Image Search</a>' in r.text
+    assert 'href="http://tools.idronline.org:5002/" class="active"' in r.text
 
 
 def test_english_upload():
