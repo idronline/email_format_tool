@@ -25,7 +25,7 @@ collect-emails = "idr_emails.cli:main"
 packages = ["idr_emails"]
 
 [tool.setuptools.package-data]
-idr_emails = ["page.html", "nav.html"]
+idr_emails = ["page.html", "nav.html", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

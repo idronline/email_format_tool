@@ -35,8 +35,14 @@ def test_form_page():
     r = client.get("/")
     assert r.status_code == 200 and 'name="zipfile"' in r.text
     assert 'name="exclude"' not in r.text  # dropped from the web form
-    # audience has no default: the placeholder is selected and the field is required
-    assert '<option value="" selected disabled>' in r.text and 'name="audience" required' in r.text
+    # audience has no default: two radio buttons, none checked, a choice is required
+    assert 'name="audience" id="aud-en" value="english" required' in r.text
+    assert 'value="hindi"' in r.text and "checked" not in r.text
+
+
+def test_shared_static_files_are_served():
+    assert "--red:#DF373B" in client.get("/static/idr-tools.css").text
+    assert "data-working" in client.get("/static/idr-tools.js").text
 
 
 def test_navbar_links_use_request_host():

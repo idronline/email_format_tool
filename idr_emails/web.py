@@ -19,12 +19,14 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.staticfiles import StaticFiles
 
 from . import AUDIENCES
 from .pipeline import run
 
-PAGE = (Path(__file__).parent / "page.html").read_text(encoding="utf-8")
-NAV = (Path(__file__).parent / "nav.html").read_text(encoding="utf-8")
+HERE = Path(__file__).parent
+PAGE = (HERE / "page.html").read_text(encoding="utf-8")
+NAV = (HERE / "nav.html").read_text(encoding="utf-8")
 # Shared across IDR tools (same list in every tool repo).
 NAV_TOOLS = [("Translate", 5000), ("Audio", 5001), ("Email Collector", 5002)]
 NAV_ACTIVE = "Email Collector"
@@ -32,7 +34,7 @@ REPORTS = [
     ("collect_emails_log.csv", "Per-file log"),
     ("missing_names.csv", "Emails without a name"),
     ("per_file_summary.csv", "Per-file summary"),
-    ("suspicious_emails.csv", "Suspicious addresses"),
+    ("suspicious_emails.csv", "Possible typos / test addresses"),
 ]
 
 basic = HTTPBasic(auto_error=False)
@@ -50,30 +52,38 @@ def check_login(creds: HTTPBasicCredentials | None = Depends(basic)):
 
 app = FastAPI(title="IDR Email Collector", docs_url=None, redoc_url=None, openapi_url=None,
               dependencies=[Depends(check_login)])
+# Shared stylesheet and script (same files in every tool repo).
+app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+
+esc = html.escape
 
 
 def nav_html(request: Request):
-    host = html.escape(request.url.hostname or "localhost")
+    host = esc(request.url.hostname or "localhost")
     links = "".join(
         f'<a href="//{host}:{port}/"' + (' class="active" aria-current="page"' if name == NAV_ACTIVE else "")
-        + f">{html.escape(name)}</a>"
+        + f">{esc(name)}</a>"
         for name, port in NAV_TOOLS)
     return NAV.replace("<!-- LINKS -->", links)
 
 
-def page(request: Request, result_html=""):
-    return HTMLResponse(PAGE.replace("<!-- NAV -->", nav_html(request)).replace("<!-- RESULT -->", result_html))
+def page(request: Request, result_html="", again=False):
+    out = PAGE.replace("<!-- NAV -->", nav_html(request)).replace("<!-- RESULT -->", result_html)
+    if again:
+        out = out.replace('<p class="card-note hidden" id="again">', '<p class="card-note" id="again">')
+    return HTMLResponse(out)
 
 
 def download_link(name, text, label, primary=False):
     data = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    cls = "btn btn-success btn-lg btn-block mb-3" if primary else "d-block mb-1"
-    return (f'<a class="{cls}" download="{name}" '
-            f'href="data:text/csv;charset=utf-8;base64,{data}">{html.escape(label)}</a>')
+    cls = ' class="btn btn-download"' if primary else ""
+    return f'<a{cls} download="{name}" href="data:text/csv;charset=utf-8;base64,{data}">{esc(label)}</a>'
 
 
 def error(request, msg):
-    return page(request, f'<div class="alert alert-danger mt-4">{html.escape(msg)}</div>')
+    return page(request, '<section class="card error-card result"><div class="done-head">'
+                         '<div class="tick bad">!</div><div><h2>Could not collect emails</h2>'
+                         f'<p>{esc(msg)}</p></div></div></section>')
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -98,34 +108,28 @@ def process(request: Request,
         texts = r.csv_texts()
 
     out_name = f"subscribers_{audience}.csv"
-    preference = r.preference or "empty (Hindi)"
-    lines = [
-        ("Zip file", zipfile_.filename),
-        ("Audience", audience.title()),
-        ("Newsletter Preference", preference),
-        ("Files read", r.ok),
-        ("Emails without a name", r.no_name),
-        ("Possible typos / test addresses", r.suspicious_count),
-    ]
+    sub = " &middot; ".join(esc(x) for x in [zipfile_.filename or "", audience.title(),
+                                               r.preference or "no newsletter preference"])
+    stats = [(r.ok, "files read"), (r.no_name, "without a name"), (r.suspicious_count, "possible typos")]
     if fix_typos:
-        lines.append(("Typos fixed", r.fixed))
-    rows = "".join(f"<tr><td>{html.escape(k)}</td><td class='text-right'>{html.escape(str(v))}</td></tr>"
-                   for k, v in lines)
+        stats.append((r.fixed, "typos fixed"))
+    tiles = "".join(f'<div class="stat"><b>{n:,}</b><span>{esc(label)}</span></div>' for n, label in stats)
 
     bad = ""
     if r.bad:
-        items = "".join(f"<li>{html.escape(f)} &ndash; {html.escape(d)}</li>" for f, s, d in r.bad)
-        bad = (f'<div class="alert alert-warning small"><b>{len(r.bad)} file(s) could not be read</b> '
-               f'(their emails are not in the list):<ul class="mb-0 pl-3 mt-1">{items}</ul></div>')
+        items = "".join(f"<li>{esc(f)} ({esc(d)})</li>" for f, _s, d in r.bad)
+        bad = (f'<div class="warn"><b>{len(r.bad)} file(s) could not be read</b> &ndash; '
+               f'their emails are not in the list:<ul>{items}</ul></div>')
 
     reports = "".join(download_link(n, texts[n], label) for n, label in REPORTS)
     return page(
         request,
-        f'<div class="alert alert-success"><b>Done: {len(r.found)} unique emails.</b></div>'
+        '<section class="card result">'
+        f'<div class="done-head"><div class="tick">&#10003;</div><div><h2>{len(r.found):,} unique emails</h2>'
+        f'<p>{sub}</p></div></div>'
         + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", primary=True)
-        + bad
-        + f'<table class="table table-sm mt-3">{rows}</table>'
-        + '<details class="mb-4"><summary class="text-muted">More reports (optional)</summary>'
-        + f'<div class="mt-2">{reports}</div></details>'
-        + '<hr class="mb-4"><p class="text-muted">Process another zip:</p>'
+        + f'<div class="stats">{tiles}</div>{bad}'
+        + f'<details><summary>More reports (optional)</summary>{reports}</details>'
+        + '</section>',
+        again=True,
     )

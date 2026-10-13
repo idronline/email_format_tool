@@ -3,61 +3,60 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <title>Email Collector App</title>
+    <title>Email Collector · IDR Tools</title>
+    <link rel="icon" href="https://idronline.org/wp-content/uploads/2021/06/cropped-idr-logo-without-tagline-sm-150x104.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="/static/idr-tools.css">
   </head>
   <body>
     <!-- NAV -->
-    <div class="container">
-      <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-          <h1 class="mt-5 mb-2">Collect subscriber emails</h1>
-          <p class="text-muted mb-4">Turn a zip of contact lists into one CSV, ready to upload to the newsletter list.
-            Duplicates are removed and names are filled in where the files have them.</p>
-          <!-- RESULT -->
-          <form method="post" enctype="multipart/form-data" id="uploadForm">
-            <div class="form-group">
-              <label for="audience"><b>1. Who is this list for?</b></label>
-              <select class="form-control" id="audience" name="audience" required>
-                <option value="" selected disabled>Choose English or Hindi&hellip;</option>
-                <option value="english">English</option>
-                <option value="hindi">Hindi</option>
-              </select>
-              <small class="form-text text-muted" id="audienceHelp">
-                English and Hindi lists are processed separately, one zip at a time.</small>
-            </div>
-            <div class="form-group">
-              <label for="zipfile"><b>2. Choose the zip file</b></label>
-              <input class="form-control-file" id="zipfile" name="zipfile" required type="file" accept=".zip">
-              <small class="form-text text-muted">A .zip with folders of .csv, .xlsx or .docx files.
-                Any other files are skipped and listed in the result.</small>
-            </div>
-            <div class="form-group form-check">
-              <input class="form-check-input" id="fix_typos" name="fix_typos" type="checkbox" value="true">
-              <label class="form-check-label" for="fix_typos">Fix common typos in email domains
-                (e.g. gmial.com &rarr; gmail.com)</label>
-              <small class="form-text text-muted">If left unticked, possible typos are only listed in a report.</small>
-            </div>
-            <button type="submit" class="btn btn-primary" id="submitButton">Collect emails</button>
-            <button class="btn btn-secondary d-none" id="processingButton" disabled>Collecting emails&hellip;</button>
-          </form>
-          <div class="mb-5"></div>
-        </div>
-      </div>
-    </div>
+    <main>
+      <h1>Collect subscriber emails</h1>
+      <p class="lead">Turn a zip of contact lists into one CSV, ready to upload to the newsletter list.</p>
 
-    <script>
-      var help = {
-        english: 'Every row gets the Newsletter Preference <b>The IDR Weekly,Off The Record</b>.',
-        hindi: 'The Newsletter Preference column is left empty (it only applies to English).'
-      };
-      document.getElementById('audience').addEventListener('change', function() {
-        document.getElementById('audienceHelp').innerHTML = help[this.value];
-      });
-      document.getElementById('uploadForm').addEventListener('submit', function() {
-        document.getElementById('submitButton').classList.add('d-none');
-        document.getElementById('processingButton').classList.remove('d-none');
-      });
-    </script>
+      <!-- RESULT -->
+
+      <section class="card hidden" id="working">
+        <div class="working">
+          <div class="spinner"></div>
+          <div><b>Collecting emails&hellip;</b> <span class="timer">0:00</span>
+            <div class="hint" style="margin:0">Please keep this tab open. Big zips can take a minute.</div></div>
+        </div>
+      </section>
+
+      <form class="card" method="post" enctype="multipart/form-data" data-working="working">
+        <p class="card-note hidden" id="again">Process another zip:</p>
+        <div class="step">
+          <div class="step-label"><span class="num">1</span> Who is this list for?</div>
+          <div class="toggle">
+            <input type="radio" name="audience" id="aud-en" value="english" required>
+            <label for="aud-en"><b>English</b><span>Preference: The IDR Weekly,Off The Record</span></label>
+            <input type="radio" name="audience" id="aud-hi" value="hindi">
+            <label for="aud-hi"><b>Hindi</b><span>No newsletter preference</span></label>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-label"><span class="num">2</span> Choose the zip file</div>
+          <label class="drop">
+            <input type="file" name="zipfile" accept=".zip" required>
+            <div class="empty"><div class="big">Drop your .zip here, or click to choose</div>
+              <div class="small">Folders of .csv, .xlsx or .docx files. Other files are skipped and listed.</div></div>
+            <div class="chosen"><div class="file-icon">zip</div>
+              <div><div class="file-name"></div><div class="small file-size"></div></div>
+              <span class="change">Change</span></div>
+          </label>
+        </div>
+        <div class="step">
+          <label class="check"><input type="checkbox" name="fix_typos" value="true">
+            <span>Fix common typos in email domains (gmial.com &rarr; gmail.com)
+              <span class="hint" style="display:block;margin:0">If left unticked, possible typos are only listed in a report.</span></span></label>
+        </div>
+        <button type="submit" class="btn btn-primary">Collect emails</button>
+        <div class="hint submit-hint hidden">Choose who the list is for and a zip file to continue.</div>
+      </form>
+    </main>
+    <footer>IDR internal tools &middot; Need help? Contact Subhash</footer>
+    <script src="/static/idr-tools.js"></script>
   </body>
 </html>
