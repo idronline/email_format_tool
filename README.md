@@ -45,8 +45,11 @@ offered as downloads on the same page.
 
 - Uploads are processed in a temporary folder that is deleted straight away. Results are
   embedded in the response page, so the server never keeps personal data.
-- Set `APP_USERNAME` and `APP_PASSWORD` in the environment to require a browser login
-  (HTTP basic auth). Without them the page is open to anyone who can reach the port.
+- Set `APP_USERNAME`, `APP_PASSWORD` and `SECRET_KEY` in the environment to require the shared
+  IDR tools login page (`idr_emails/login.py`). One sign-in covers every tool on the server.
+  Without them the page is open to anyone who can reach it.
+- In production it runs behind nginx at `https://tools.idronline.org/emails/`
+  (`deploy/nginx-tools.idronline.org.conf`, which also serves `/translate/` and `/audio/`).
 
 ## Command line
 

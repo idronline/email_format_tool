@@ -47,10 +47,11 @@ def test_shared_static_files_are_served():
 
 def test_navbar_links_to_all_tools():
     r = client.get("/")
-    for port in (5000, 5001, 5002):
-        assert f'href="http://tools.idronline.org:{port}/"' in r.text
-    assert 'href="http://api.idronline.org:5000/">Image Search</a>' in r.text
-    assert 'href="http://tools.idronline.org:5002/" class="active"' in r.text
+    for path in ("translate", "audio", "emails"):
+        assert f'href="https://tools.idronline.org/{path}/"' in r.text
+    assert 'href="https://api.idronline.org/image-search/">Image Search</a>' in r.text
+    assert 'href="https://tools.idronline.org/emails/" class="active"' in r.text
+    assert "Sign out" not in r.text  # login is off when no password is set
 
 
 def test_english_upload():
@@ -91,10 +92,56 @@ def test_bad_zip_is_reported():
     assert "not a valid zip" in r.text and not downloads(r.text)
 
 
-def test_login_when_configured(monkeypatch):
+@pytest.fixture
+def login_on(monkeypatch):
     monkeypatch.setenv("APP_USERNAME", "idr")
     monkeypatch.setenv("APP_PASSWORD", "secret")
-    assert client.get("/").status_code == 401
-    assert client.get("/").headers["www-authenticate"] == 'Basic realm="IDR tools"'
-    assert client.get("/", auth=("idr", "wrong")).status_code == 401
-    assert client.get("/", auth=("idr", "secret")).status_code == 200
+    monkeypatch.setenv("SECRET_KEY", "test-key")
+
+
+def test_login_page_flow(login_on):
+    c = TestClient(app, follow_redirects=False)
+    r = c.get("/")
+    assert r.status_code == 303 and r.headers["location"] == "/login?next=/"
+    assert c.post("/", files={"zipfile": ("in.zip", ZIP)}, data={"audience": "english"}).status_code == 303
+    page = c.get("/login?next=/")
+    assert page.status_code == 200 and 'name="password"' in page.text and 'href="static/idr-tools.css"' in page.text
+
+    bad = c.post("/login", data={"username": "idr", "password": "nope", "next": "/"})
+    assert bad.status_code == 401 and "not right" in bad.text and "idr_login" not in bad.cookies
+
+    ok = c.post("/login", data={"username": "idr", "password": "secret", "next": "/"})
+    assert ok.status_code == 303 and ok.headers["location"] == "/"
+    assert "idr_login" in ok.cookies and "httponly" in ok.headers["set-cookie"].lower()
+    r = c.get("/")
+    assert r.status_code == 200 and 'href="logout">Sign out' in r.text
+
+    out = c.get("/logout")
+    assert out.status_code == 303 and out.headers["location"] == "/login"
+    c.cookies.clear()
+    assert c.get("/").status_code == 303
+
+
+def test_login_behind_nginx_prefix(login_on):
+    c = TestClient(app, base_url="https://tools.idronline.org", follow_redirects=False)
+    h = {"X-Forwarded-Prefix": "/emails"}
+    r = c.get("/", headers=h)
+    assert r.headers["location"] == "/emails/login?next=/emails/"
+    ok = c.post("/login", headers=h, data={"username": "idr", "password": "secret", "next": "/emails/"})
+    assert ok.headers["location"] == "/emails/"
+    assert "secure" in ok.headers["set-cookie"].lower()  # https -> cookie only sent over https
+    # never redirect off-site after login
+    evil = c.post("/login", headers=h, data={"username": "idr", "password": "secret", "next": "//evil.example/"})
+    assert evil.headers["location"] == "/emails/"
+
+
+def test_password_change_signs_everyone_out(login_on, monkeypatch):
+    c = TestClient(app, follow_redirects=False)
+    c.post("/login", data={"username": "idr", "password": "secret", "next": "/"})
+    assert c.get("/").status_code == 200
+    monkeypatch.setenv("APP_PASSWORD", "new-secret")
+    assert c.get("/").status_code == 303
+
+
+def test_static_files_need_no_login(login_on):
+    assert client.get("/static/idr-tools.css").status_code == 200

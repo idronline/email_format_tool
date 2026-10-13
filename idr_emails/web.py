@@ -1,27 +1,27 @@
 """Minimal web front end: upload a zip, download subscribers.csv.
 
 Run:  uvicorn idr_emails.web:app --host 0.0.0.0 --port 5002
+      (behind nginx at /emails/:  --host 127.0.0.1, nginx sends X-Forwarded-Prefix /emails)
 
 Uploads are processed in a temporary folder that is deleted at once; results are
 embedded in the response page, so nothing with personal data is kept on the server.
-Set APP_USERNAME and APP_PASSWORD to require a browser login (HTTP basic auth).
+Set APP_USERNAME and APP_PASSWORD to require the shared IDR tools login (see login.py).
 """
 
 import base64
 import html
 import os
-import secrets
 import shutil
 import tempfile
 import zipfile
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 
 from . import AUDIENCES
+from .login import login_enabled, make_routes, require_login
 from .pipeline import run
 
 HERE = Path(__file__).parent
@@ -29,10 +29,10 @@ PAGE = (HERE / "page.html").read_text(encoding="utf-8")
 NAV = (HERE / "nav.html").read_text(encoding="utf-8")
 # Shared across IDR tools (same list in every tool repo).
 NAV_TOOLS = [
-    ("Translate", "http://tools.idronline.org:5000/"),
-    ("Audio", "http://tools.idronline.org:5001/"),
-    ("Email Collector", "http://tools.idronline.org:5002/"),
-    ("Image Search", "http://api.idronline.org:5000/"),
+    ("Translate", "https://tools.idronline.org/translate/"),
+    ("Audio", "https://tools.idronline.org/audio/"),
+    ("Email Collector", "https://tools.idronline.org/emails/"),
+    ("Image Search", "https://api.idronline.org/image-search/"),
 ]
 NAV_ACTIVE = "Email Collector"
 REPORTS = [
@@ -42,21 +42,7 @@ REPORTS = [
     ("suspicious_emails.csv", "Possible typos / test addresses"),
 ]
 
-basic = HTTPBasic(auto_error=False)
-
-
-def check_login(creds: HTTPBasicCredentials | None = Depends(basic)):
-    user, pw = os.environ.get("APP_USERNAME"), os.environ.get("APP_PASSWORD")
-    if not user or not pw:
-        return  # login not configured
-    ok = creds is not None and secrets.compare_digest(creds.username, user) \
-        and secrets.compare_digest(creds.password, pw)
-    if not ok:
-        raise HTTPException(401, "Login required", headers={"WWW-Authenticate": 'Basic realm="IDR tools"'})
-
-
-app = FastAPI(title="IDR Email Collector", docs_url=None, redoc_url=None, openapi_url=None,
-              dependencies=[Depends(check_login)])
+app = FastAPI(title="IDR Email Collector", docs_url=None, redoc_url=None, openapi_url=None)
 # Shared stylesheet and script (same files in every tool repo).
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
@@ -68,7 +54,11 @@ def nav_html():
         f'<a href="{url}"' + (' class="active" aria-current="page"' if name == NAV_ACTIVE else "")
         + f">{esc(name)}</a>"
         for name, url in NAV_TOOLS)
-    return NAV.replace("<!-- LINKS -->", links)
+    signout = '<a class="idr-nav-signout" href="logout">Sign out</a>' if login_enabled() else ""
+    return NAV.replace("<!-- LINKS -->", links).replace("<!-- SIGNOUT -->", signout)
+
+
+app.include_router(make_routes(nav_html))
 
 
 def page(request: Request, result_html="", again=False):
@@ -90,12 +80,12 @@ def error(request, msg):
                          f'<p>{esc(msg)}</p></div></div></section>')
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def index(request: Request):
     return page(request)
 
 
-@app.post("/", response_class=HTMLResponse)
+@app.post("/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
 def process(request: Request,
             zipfile_: UploadFile = File(..., alias="zipfile"),
             fix_typos: bool = Form(False),

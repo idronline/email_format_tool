@@ -13,6 +13,7 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "python-multipart>=0.0.9",
+    "itsdangerous>=2.1",
 ]
 
 [project.optional-dependencies]
@@ -25,7 +26,7 @@ collect-emails = "idr_emails.cli:main"
 packages = ["idr_emails"]
 
 [tool.setuptools.package-data]
-idr_emails = ["page.html", "nav.html", "static/*"]
+idr_emails = ["page.html", "nav.html", "login.html", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
