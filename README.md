@@ -9,8 +9,10 @@ Exact header, one row per unique email:
 
 ```csv
 email,First Name,Last Name,Newsletter Preference
-subhaoi@gmail.com,Subhash,S,The IDR Weekly||Off The Record
+subhaoi@gmail.com,Subhash,S,"The IDR Weekly,Off The Record"
 ```
+
+The preference contains a comma, so CSV wraps it in quotes. It is still one column.
 
 - `email`: lowercased, deduplicated, sorted.
 - `First Name` / `Last Name`: taken from the source when it has them, otherwise blank.
@@ -19,7 +21,7 @@ subhaoi@gmail.com,Subhash,S,The IDR Weekly||Off The Record
 
   | Audience | Newsletter Preference | Web download | CLI |
   |---|---|---|---|
-  | English (default) | `The IDR Weekly||Off The Record` | `subscribers_english.csv` | `--audience english` |
+  | English | `The IDR Weekly,Off The Record` | `subscribers_english.csv` | `--audience english` |
   | Hindi | blank | `subscribers_hindi.csv` | `--audience hindi` |
 
 ## Setup
@@ -37,8 +39,8 @@ pip install -r requirements-dev.txt     # runtime deps + pytest
 uvicorn idr_emails.web:app --host 0.0.0.0 --port 5002
 ```
 
-Open `http://localhost:5002`, choose the audience (English / Hindi), upload the zip, optionally add an existing list to exclude and
-tick "Fix common domain typos", then click **Download subscribers_english.csv** (or `_hindi`). The reports are
+Open `http://localhost:5002`, choose the audience (English or Hindi, required), choose the zip, optionally
+tick "Fix common typos", then click **Download subscribers_english.csv** (or `_hindi`). The reports are
 offered as downloads on the same page.
 
 - Uploads are processed in a temporary folder that is deleted straight away. Results are
@@ -83,7 +85,7 @@ the corrected address already exists. Without it, nothing is changed, only repor
 
 Skipped and failed files are also printed to the terminal. One bad file never stops the run.
 
-### Suppression list
+### Suppression list (command line only)
 
 ```bash
 python collect_emails.py data.zip -o subscribers.csv --exclude existing_list.csv [--exclude more.xlsx]

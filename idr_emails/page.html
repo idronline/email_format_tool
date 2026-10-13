@@ -11,38 +11,49 @@
     <div class="container">
       <div class="row justify-content-center">
         <div class="col-md-8 col-lg-6">
-          <h1 class="mt-5 mb-4">Collect subscriber emails</h1>
-          <p class="text-muted">Upload a zip of folders with csv / xlsx / docx files. You get one CSV in the
-            subscriber upload format: <code>email,First Name,Last Name,Newsletter Preference</code>.</p>
+          <h1 class="mt-5 mb-2">Collect subscriber emails</h1>
+          <p class="text-muted mb-4">Turn a zip of contact lists into one CSV, ready to upload to the newsletter list.
+            Duplicates are removed and names are filled in where the files have them.</p>
+          <!-- RESULT -->
           <form method="post" enctype="multipart/form-data" id="uploadForm">
             <div class="form-group">
-              <label for="zipfile">Zip file</label>
-              <input class="form-control-file" id="zipfile" name="zipfile" required type="file" accept=".zip">
-            </div>
-            <div class="form-group">
-              <label for="audience">Audience</label>
+              <label for="audience"><b>1. Who is this list for?</b></label>
               <select class="form-control" id="audience" name="audience" required>
-                <option value="english" selected>English (Newsletter Preference: The IDR Weekly||Off The Record)</option>
-                <option value="hindi">Hindi (no Newsletter Preference)</option>
+                <option value="" selected disabled>Choose English or Hindi&hellip;</option>
+                <option value="english">English</option>
+                <option value="hindi">Hindi</option>
               </select>
+              <small class="form-text text-muted" id="audienceHelp">
+                English and Hindi lists are processed separately, one zip at a time.</small>
             </div>
             <div class="form-group">
-              <label for="exclude">Existing list to exclude (optional, csv / xlsx / docx)</label>
-              <input class="form-control-file" id="exclude" name="exclude" type="file" accept=".csv,.xlsx,.xlsm,.docx,.zip">
+              <label for="zipfile"><b>2. Choose the zip file</b></label>
+              <input class="form-control-file" id="zipfile" name="zipfile" required type="file" accept=".zip">
+              <small class="form-text text-muted">A .zip with folders of .csv, .xlsx or .docx files.
+                Any other files are skipped and listed in the result.</small>
             </div>
             <div class="form-group form-check">
               <input class="form-check-input" id="fix_typos" name="fix_typos" type="checkbox" value="true">
-              <label class="form-check-label" for="fix_typos">Fix common domain typos (e.g. gmial.com &rarr; gmail.com)</label>
+              <label class="form-check-label" for="fix_typos">Fix common typos in email domains
+                (e.g. gmial.com &rarr; gmail.com)</label>
+              <small class="form-text text-muted">If left unticked, possible typos are only listed in a report.</small>
             </div>
             <button type="submit" class="btn btn-primary" id="submitButton">Collect emails</button>
-            <button class="btn btn-secondary d-none" id="processingButton" disabled>Processing...</button>
+            <button class="btn btn-secondary d-none" id="processingButton" disabled>Collecting emails&hellip;</button>
           </form>
-          <!-- RESULT -->
+          <div class="mb-5"></div>
         </div>
       </div>
     </div>
 
     <script>
+      var help = {
+        english: 'Every row gets the Newsletter Preference <b>The IDR Weekly,Off The Record</b>.',
+        hindi: 'The Newsletter Preference column is left empty (it only applies to English).'
+      };
+      document.getElementById('audience').addEventListener('change', function() {
+        document.getElementById('audienceHelp').innerHTML = help[this.value];
+      });
       document.getElementById('uploadForm').addEventListener('submit', function() {
         document.getElementById('submitButton').classList.add('d-none');
         document.getElementById('processingButton').classList.remove('d-none');

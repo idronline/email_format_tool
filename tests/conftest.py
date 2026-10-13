@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-PREF = "The IDR Weekly||Off The Record"
+PREF = "The IDR Weekly,Off The Record"
 HEADER = ["email", "First Name", "Last Name", "Newsletter Preference"]
 
 

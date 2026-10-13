@@ -15,12 +15,12 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
+from . import AUDIENCES
 from .pipeline import run
 
 PAGE = (Path(__file__).parent / "page.html").read_text(encoding="utf-8")
@@ -84,57 +84,48 @@ def index(request: Request):
 @app.post("/", response_class=HTMLResponse)
 def process(request: Request,
             zipfile_: UploadFile = File(..., alias="zipfile"),
-            exclude: UploadFile | None = File(None),
             fix_typos: bool = Form(False),
-            audience: Literal["english", "hindi"] = Form("english")):
+            audience: str = Form("")):
+    if audience not in AUDIENCES:
+        return error(request, "Please choose who the list is for: English or Hindi.")
     with tempfile.TemporaryDirectory(prefix="idr_emails_") as tmp:
         zpath = Path(tmp) / "input.zip"
         with open(zpath, "wb") as fh:
             shutil.copyfileobj(zipfile_.file, fh)
         if not zipfile.is_zipfile(zpath):
             return error(request, f"{zipfile_.filename} is not a valid zip file.")
-
-        excludes = []
-        if exclude is not None and exclude.filename:
-            epath = Path(tmp) / ("exclude" + Path(exclude.filename).suffix.lower())
-            with open(epath, "wb") as fh:
-                shutil.copyfileobj(exclude.file, fh)
-            excludes.append(epath)
-
-        try:
-            r = run(zpath, excludes, fix_typos, audience)
-        except ValueError as exc:
-            return error(request, f"Could not read the exclude file: {exc}")
+        r = run(zpath, fix_typos=fix_typos, audience=audience)
         texts = r.csv_texts()
 
+    out_name = f"subscribers_{audience}.csv"
+    preference = r.preference or "empty (Hindi)"
     lines = [
-        ("Audience", audience.title() + ("" if r.preference else " (no newsletter preference)")),
-        ("Files read OK", r.ok),
-        ("Unique emails", len(r.found)),
-        ("Without a name", r.no_name),
-        ("Suspicious", r.suspicious_count),
+        ("Zip file", zipfile_.filename),
+        ("Audience", audience.title()),
+        ("Newsletter Preference", preference),
+        ("Files read", r.ok),
+        ("Emails without a name", r.no_name),
+        ("Possible typos / test addresses", r.suspicious_count),
     ]
     if fix_typos:
         lines.append(("Typos fixed", r.fixed))
-    if excludes:
-        lines.append(("Excluded (already on list)", r.excluded))
     rows = "".join(f"<tr><td>{html.escape(k)}</td><td class='text-right'>{html.escape(str(v))}</td></tr>"
                    for k, v in lines)
 
     bad = ""
     if r.bad:
-        items = "".join(f"<li><b>{html.escape(s)}</b> {html.escape(f)} &ndash; {html.escape(d)}</li>"
-                        for f, s, d in r.bad)
-        bad = (f'<div class="alert alert-warning small"><b>{len(r.bad)} file(s) skipped or failed</b>'
-               f'<ul class="mb-0 pl-3">{items}</ul></div>')
+        items = "".join(f"<li>{html.escape(f)} &ndash; {html.escape(d)}</li>" for f, s, d in r.bad)
+        bad = (f'<div class="alert alert-warning small"><b>{len(r.bad)} file(s) could not be read</b> '
+               f'(their emails are not in the list):<ul class="mb-0 pl-3 mt-1">{items}</ul></div>')
 
-    out_name = f"subscribers_{audience}.csv"
     reports = "".join(download_link(n, texts[n], label) for n, label in REPORTS)
     return page(
         request,
-        '<hr class="mt-5"><h4 class="mb-3">Result</h4>'
-        f'<table class="table table-sm">{rows}</table>{bad}'
+        f'<div class="alert alert-success"><b>Done: {len(r.found)} unique emails.</b></div>'
         + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", primary=True)
-        + f'<p class="mb-1 mt-3 text-muted">Reports</p>{reports}<div class="mb-5"></div>'
+        + bad
+        + f'<table class="table table-sm mt-3">{rows}</table>'
+        + '<details class="mb-4"><summary class="text-muted">More reports (optional)</summary>'
+        + f'<div class="mt-2">{reports}</div></details>'
+        + '<hr class="mb-4"><p class="text-muted">Process another zip:</p>'
     )
-

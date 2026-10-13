@@ -22,7 +22,7 @@ def main(argv=None):
     ap.add_argument("--exclude", metavar="FILE", action="append", default=[],
                     help="suppression list: drop every email found in FILE (csv/xlsx/docx/zip). Repeatable")
     ap.add_argument("--audience", choices=list(AUDIENCES), default="english",
-                    help="english: Newsletter Preference is 'The IDR Weekly||Off The Record' (default); "
+                    help="english: Newsletter Preference is 'The IDR Weekly,Off The Record' (default); "
                          "hindi: Newsletter Preference is left blank")
     args = ap.parse_args(argv)
 

@@ -1,6 +1,8 @@
 """Web app tests via FastAPI's TestClient (synthetic data only)."""
 
 import base64
+import csv
+import io
 import re
 
 import pytest
@@ -18,13 +20,23 @@ def downloads(html):
             for name, data in re.findall(r'download="([^"]+)" href="data:text/csv;charset=utf-8;base64,([^"]+)"', html)}
 
 
+def rows(text):
+    return list(csv.reader(io.StringIO(text)))
+
+
 def post(files, data=None):
     return client.post("/", files=files, data=data or {})
+
+
+ZIP = make_zip({"a.csv": "email\nx@example.com\n"})
 
 
 def test_form_page():
     r = client.get("/")
     assert r.status_code == 200 and 'name="zipfile"' in r.text
+    assert 'name="exclude"' not in r.text  # dropped from the web form
+    # audience has no default: the placeholder is selected and the field is required
+    assert '<option value="" selected disabled>' in r.text and 'name="audience" required' in r.text
 
 
 def test_navbar_links_use_request_host():
@@ -34,51 +46,42 @@ def test_navbar_links_use_request_host():
     assert 'href="//tools.idronline.org:5002/" class="active"' in r.text
 
 
-def test_upload_returns_subscribers_csv():
+def test_english_upload():
     z = make_zip({"a/b.csv": "Email,First Name,Last Name\nAda@Example.com,ada,lovelace\n",
                   "notes.pdf": b"%PDF-1.4"})
-    r = post({"zipfile": ("in.zip", z, "application/zip")})
+    r = post({"zipfile": ("in.zip", z, "application/zip")}, {"audience": "english"})
     assert r.status_code == 200
     out = downloads(r.text)
-    lines = out["subscribers_english.csv"].splitlines()
-    assert lines[0] == ",".join(HEADER)
-    assert lines[1] == f"ada@example.com,Ada,Lovelace,{PREF}"
+    text = out["subscribers_english.csv"]
+    assert rows(text) == [HEADER, ["ada@example.com", "Ada", "Lovelace", PREF]]
+    assert text.splitlines()[1] == 'ada@example.com,Ada,Lovelace,"The IDR Weekly,Off The Record"'
     assert {"collect_emails_log.csv", "missing_names.csv", "per_file_summary.csv",
             "suspicious_emails.csv"} <= set(out)
-    assert "skipped or failed" in r.text and "notes.pdf" in r.text
+    assert "could not be read" in r.text and "notes.pdf" in r.text
 
 
-def test_fix_typos_and_exclude():
-    z = make_zip({"a.csv": "email\nann@gmial.com\nold@example.com\nnew@example.com\n"})
-    r = post({"zipfile": ("in.zip", z), "exclude": ("existing.csv", b"email\nold@example.com\n")},
-             {"fix_typos": "true"})
-    emails = [l.split(",")[0] for l in downloads(r.text)["subscribers_english.csv"].splitlines()[1:]]
+def test_hindi_upload_has_empty_preference():
+    out = downloads(post({"zipfile": ("in.zip", ZIP)}, {"audience": "hindi"}).text)
+    assert rows(out["subscribers_hindi.csv"]) == [HEADER, ["x@example.com", "", "", ""]]
+
+
+def test_fix_typos():
+    z = make_zip({"a.csv": "email\nann@gmial.com\nnew@example.com\n"})
+    r = post({"zipfile": ("in.zip", z)}, {"audience": "english", "fix_typos": "true"})
+    emails = [row[0] for row in rows(downloads(r.text)["subscribers_english.csv"])[1:]]
     assert emails == ["ann@gmail.com", "new@example.com"]
 
 
-def test_audience_dropdown():
-    z = make_zip({"a.csv": "email\nx@example.com\n"})
-    out = downloads(post({"zipfile": ("in.zip", z)}, {"audience": "hindi"}).text)
-    assert out["subscribers_hindi.csv"].splitlines() == [",".join(HEADER), "x@example.com,,,"]
-    out = downloads(post({"zipfile": ("in.zip", z)}).text)  # default is English
-    assert out["subscribers_english.csv"].splitlines()[1] == f"x@example.com,,,{PREF}"
-    assert post({"zipfile": ("in.zip", z)}, {"audience": "tamil"}).status_code == 422
+@pytest.mark.parametrize("data", [{}, {"audience": ""}, {"audience": "tamil"}])
+def test_audience_is_required(data):
+    r = post({"zipfile": ("in.zip", ZIP)}, data)
+    assert r.status_code == 200 and "Please choose who the list is for" in r.text
+    assert not downloads(r.text)
 
 
-def test_empty_optional_exclude_field_is_ignored():
-    z = make_zip({"a.csv": "email\nx@example.com\n"})
-    r = post({"zipfile": ("in.zip", z), "exclude": ("", b"")})
-    assert "x@example.com" in downloads(r.text)["subscribers_english.csv"]
-
-
-@pytest.mark.parametrize("files, message", [
-    ({"zipfile": ("in.zip", b"not a zip")}, "not a valid zip"),
-    ({"zipfile": ("in.zip", make_zip({"a.csv": "email\nx@example.com\n"})),
-      "exclude": ("old.xlsx", b"not excel")}, "Could not read the exclude file"),
-])
-def test_errors_are_shown(files, message):
-    r = post(files)
-    assert r.status_code == 200 and message in r.text and not any(n.startswith("subscribers") for n in downloads(r.text))
+def test_bad_zip_is_reported():
+    r = post({"zipfile": ("in.zip", b"not a zip")}, {"audience": "english"})
+    assert "not a valid zip" in r.text and not downloads(r.text)
 
 
 def test_login_when_configured(monkeypatch):
