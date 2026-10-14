@@ -76,7 +76,7 @@ def _safe_next(request, target):
 
 
 def _login_page(nav_html, error="", nxt="/", username=""):
-    err = f'<div class="warn" style="background:var(--pale-red)">{html.escape(error)}</div>' if error else ""
+    err = f'<div class="warn" style="background:var(--pale-red);border-left-color:var(--red)">{html.escape(error)}</div>' if error else ""
     return (LOGIN_PAGE.replace("<!-- NAV -->", nav_html).replace("<!-- ERROR -->", err)
             .replace("{{next}}", html.escape(nxt, quote=True)).replace("{{username}}", html.escape(username, quote=True))
             .replace("{{autofocus_user}}", "" if username else "autofocus")
@@ -100,7 +100,7 @@ def make_routes(nav_html):
         ok = secrets.compare_digest(username, user) & secrets.compare_digest(password, pw)
         if not ok:
             await asyncio.sleep(1)  # slow down password guessing
-            return HTMLResponse(_login_page(nav_html(), "That username or password is not right.", nxt, username), 401)
+            return HTMLResponse(_login_page(nav_html(), "That username or password is not right. · यूज़रनेम या पासवर्ड सही नहीं है।", nxt, username), 401)
         resp = RedirectResponse(nxt, 303)
         resp.set_cookie(COOKIE, _serializer(user, pw).dumps({"u": user, "p": _fingerprint(pw)}), max_age=MAX_AGE,
                         path="/", httponly=True, secure=request.url.scheme == "https", samesite="lax")

@@ -6,57 +6,67 @@
     <title>Email Collector · IDR Tools</title>
     <link rel="icon" href="https://idronline.org/wp-content/uploads/2021/06/cropped-idr-logo-without-tagline-sm-150x104.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Serif+Devanagari:wght@700&family=Open+Sans:wght@400;600;700&display=swap">
     <link rel="stylesheet" href="static/idr-tools.css">
   </head>
   <body>
     <!-- NAV -->
+    <header class="hero"><div class="idr-wrap">
+      <h1>Collect subscriber emails<span class="hi" lang="hi">सब्सक्राइबर ईमेल इकट्ठा करें</span></h1>
+      <p class="lead">Turn a zip of contact lists into one CSV, ready to upload to the newsletter list.
+        <span class="hi" lang="hi">कॉन्टैक्ट लिस्ट वाली zip फ़ाइल से एक CSV बनाएं, जो सीधे न्यूज़लेटर लिस्ट में अपलोड हो सके।</span></p>
+    </div></header>
     <main>
-      <h1>Collect subscriber emails</h1>
-      <p class="lead">Turn a zip of contact lists into one CSV, ready to upload to the newsletter list.</p>
-
       <!-- RESULT -->
 
       <section class="card hidden" id="working">
         <div class="working">
           <div class="spinner"></div>
           <div><b>Collecting emails&hellip;</b> <span class="timer">0:00</span>
-            <div class="hint" style="margin:0">Please keep this tab open. Big zips can take a minute.</div></div>
+            <span class="hi" lang="hi" style="font-weight:600">ईमेल इकट्ठा हो रहे हैं&hellip;</span>
+            <div class="hint" style="margin:0">Please keep this tab open. Big zips can take a minute.
+              <span class="hi" lang="hi">यह टैब खुला रखें। बड़ी zip फ़ाइल में एक मिनट लग सकता है।</span></div></div>
         </div>
       </section>
 
       <form class="card" method="post" enctype="multipart/form-data" data-working="working">
-        <p class="card-note hidden" id="again">Process another zip:</p>
+        <p class="card-note hidden" id="again">Process another zip: <span lang="hi">दूसरी zip फ़ाइल:</span></p>
         <div class="step">
-          <div class="step-label"><span class="num">1</span> Who is this list for?</div>
+          <div class="step-label"><span class="num">1</span><span>Who is this list for?<span class="hi" lang="hi">यह लिस्ट किसके लिए है?</span></span></div>
           <div class="toggle">
             <input type="radio" name="audience" id="aud-en" value="english" required>
             <label for="aud-en"><b>English</b><span>Preference: The IDR Weekly,Off The Record</span></label>
             <input type="radio" name="audience" id="aud-hi" value="hindi">
-            <label for="aud-hi"><b>Hindi</b><span>No newsletter preference</span></label>
+            <label for="aud-hi"><b>Hindi</b><span>No newsletter preference</span><span lang="hi">कोई न्यूज़लेटर प्रेफ़रेंस नहीं</span></label>
           </div>
         </div>
         <div class="step">
-          <div class="step-label"><span class="num">2</span> Choose the zip file</div>
+          <div class="step-label"><span class="num">2</span><span>Choose the zip file<span class="hi" lang="hi">zip फ़ाइल चुनें</span></span></div>
           <label class="drop">
             <input type="file" name="zipfile" accept=".zip" required>
-            <div class="empty"><div class="big">Drop your .zip here, or click to choose</div>
-              <div class="small">Folders of .csv, .xlsx or .docx files. Other files are skipped and listed.</div></div>
+            <div class="empty"><div class="big">Drop your .zip here or click to choose
+                <span class="hi" lang="hi">अपनी .zip फ़ाइल यहां डालें या क्लिक करके चुनें</span></div>
+              <div class="small">Folders of .csv, .xlsx or .docx files. Other files are skipped and listed.
+                <span class="hi" lang="hi">इसमें .csv, .xlsx या .docx फ़ाइलें हों। बाकी फ़ाइलें छोड़ दी जाएंगी और उनकी लिस्ट दिखेगी।</span></div></div>
             <div class="chosen"><div class="file-icon">zip</div>
               <div><div class="file-name"></div><div class="small file-size"></div></div>
-              <span class="change">Change</span></div>
+              <span class="change">Change<span class="hi" lang="hi">बदलें</span></span></div>
           </label>
         </div>
         <div class="step">
           <label class="check"><input type="checkbox" name="fix_typos" value="true">
             <span>Fix common typos in email domains (gmial.com &rarr; gmail.com)
-              <span class="hint" style="display:block;margin:0">If left unticked, possible typos are only listed in a report.</span></span></label>
+              <span class="hi" lang="hi">ईमेल डोमेन की आम गलतियां ठीक करें (gmial.com &rarr; gmail.com)</span>
+              <span class="hint" style="display:block;margin:.2rem 0 0">If left unticked, possible typos are only listed in a report.
+                <span class="hi" lang="hi">टिक नहीं किया तो गलतियां सिर्फ़ रिपोर्ट में दिखेंगी।</span></span></span></label>
         </div>
-        <button type="submit" class="btn btn-primary">Collect emails</button>
-        <div class="hint submit-hint hidden">Choose who the list is for and a zip file to continue.</div>
+        <button type="submit" class="btn btn-primary">Collect emails<span class="hi" lang="hi">ईमेल इकट्ठा करें</span></button>
+        <div class="hint submit-hint hidden">Choose who the list is for and a zip file to continue.
+          <span class="hi" lang="hi">आगे बढ़ने के लिए लिस्ट किसके लिए है और zip फ़ाइल चुनें।</span></div>
       </form>
     </main>
-    <footer>IDR internal tools &middot; Need help? Contact Subhash</footer>
+    <footer>IDR internal tools &middot; Need help? Contact Subhash
+      <span class="hi" lang="hi">IDR के इंटरनल टूल्स · मदद चाहिए? सुभाष से संपर्क करें</span></footer>
     <script src="static/idr-tools.js"></script>
   </body>
 </html>

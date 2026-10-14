@@ -36,10 +36,10 @@ NAV_TOOLS = [
 ]
 NAV_ACTIVE = "Email Collector"
 REPORTS = [
-    ("collect_emails_log.csv", "Per-file log"),
-    ("missing_names.csv", "Emails without a name"),
-    ("per_file_summary.csv", "Per-file summary"),
-    ("suspicious_emails.csv", "Possible typos / test addresses"),
+    ("collect_emails_log.csv", "Per-file log", "हर फ़ाइल का लॉग"),
+    ("missing_names.csv", "Emails without a name", "बिना नाम वाले ईमेल"),
+    ("per_file_summary.csv", "Per-file summary", "हर फ़ाइल का सारांश"),
+    ("suspicious_emails.csv", "Possible typos / test addresses", "संभावित गलतियां / टेस्ट ईमेल"),
 ]
 
 app = FastAPI(title="IDR Email Collector", docs_url=None, redoc_url=None, openapi_url=None)
@@ -49,12 +49,17 @@ app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 esc = html.escape
 
 
+def bi(en, hi):
+    """English text with its Hindi line underneath (styled by .hi in idr-tools.css)."""
+    return f'{esc(en)}<span class="hi" lang="hi">{esc(hi)}</span>'
+
+
 def nav_html():
     links = "".join(
         f'<a href="{url}"' + (' class="active" aria-current="page"' if name == NAV_ACTIVE else "")
         + f">{esc(name)}</a>"
         for name, url in NAV_TOOLS)
-    signout = '<a class="idr-nav-signout" href="logout">Sign out</a>' if login_enabled() else ""
+    signout = f'<a class="idr-nav-signout" href="logout">{bi("Sign out", "साइन आउट")}</a>' if login_enabled() else ""
     return NAV.replace("<!-- LINKS -->", links).replace("<!-- SIGNOUT -->", signout)
 
 
@@ -68,15 +73,18 @@ def page(request: Request, result_html="", again=False):
     return HTMLResponse(out)
 
 
-def download_link(name, text, label, primary=False):
+def download_link(name, text, label, label_hi, primary=False):
     data = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    cls = ' class="btn btn-download"' if primary else ""
-    return f'<a{cls} download="{name}" href="data:text/csv;charset=utf-8;base64,{data}">{esc(label)}</a>'
+    if primary:
+        return (f'<a class="btn btn-download" download="{name}" href="data:text/csv;charset=utf-8;base64,{data}">'
+                f'{bi(label, label_hi)}</a>')
+    return (f'<a download="{name}" href="data:text/csv;charset=utf-8;base64,{data}">'
+            f'{esc(label)} &middot; <span lang="hi">{esc(label_hi)}</span></a>')
 
 
 def error(request, msg):
     return page(request, '<section class="card error-card result"><div class="done-head">'
-                         '<div class="tick bad">!</div><div><h2>Could not collect emails</h2>'
+                         f'<div class="tick bad">!</div><div><h2>{bi("Could not collect emails", "ईमेल इकट्ठा नहीं हो सके")}</h2>'
                          f'<p>{esc(msg)}</p></div></div></section>')
 
 
@@ -91,39 +99,41 @@ def process(request: Request,
             fix_typos: bool = Form(False),
             audience: str = Form("")):
     if audience not in AUDIENCES:
-        return error(request, "Please choose who the list is for: English or Hindi.")
+        return error(request, "Please choose who the list is for: English or Hindi. · कृपया चुनें कि लिस्ट किसके लिए है: English या Hindi।")
     with tempfile.TemporaryDirectory(prefix="idr_emails_") as tmp:
         zpath = Path(tmp) / "input.zip"
         with open(zpath, "wb") as fh:
             shutil.copyfileobj(zipfile_.file, fh)
         if not zipfile.is_zipfile(zpath):
-            return error(request, f"{zipfile_.filename} is not a valid zip file.")
+            return error(request, f"{zipfile_.filename} is not a valid zip file. · यह सही zip फ़ाइल नहीं है।")
         r = run(zpath, fix_typos=fix_typos, audience=audience)
         texts = r.csv_texts()
 
     out_name = f"subscribers_{audience}.csv"
     sub = " &middot; ".join(esc(x) for x in [zipfile_.filename or "", audience.title(),
                                                r.preference or "no newsletter preference"])
-    stats = [(r.ok, "files read"), (r.no_name, "without a name"), (r.suspicious_count, "possible typos")]
+    stats = [(r.ok, "files read", "फ़ाइलें पढ़ी गईं"), (r.no_name, "without a name", "बिना नाम के"),
+             (r.suspicious_count, "possible typos", "संभावित गलतियां")]
     if fix_typos:
-        stats.append((r.fixed, "typos fixed"))
-    tiles = "".join(f'<div class="stat"><b>{n:,}</b><span>{esc(label)}</span></div>' for n, label in stats)
+        stats.append((r.fixed, "typos fixed", "गलतियां ठीक हुईं"))
+    tiles = "".join(f'<div class="stat"><b>{n:,}</b><span>{bi(label, hi)}</span></div>' for n, label, hi in stats)
 
     bad = ""
     if r.bad:
         items = "".join(f"<li>{esc(f)} ({esc(d)})</li>" for f, _s, d in r.bad)
         bad = (f'<div class="warn"><b>{len(r.bad)} file(s) could not be read</b> &ndash; '
-               f'their emails are not in the list:<ul>{items}</ul></div>')
+               f'their emails are not in the list.<span class="hi" lang="hi">{len(r.bad)} फ़ाइलें पढ़ी नहीं जा सकीं, '
+               f'उनके ईमेल लिस्ट में नहीं हैं।</span><ul>{items}</ul></div>')
 
-    reports = "".join(download_link(n, texts[n], label) for n, label in REPORTS)
+    reports = "".join(download_link(n, texts[n], label, hi) for n, label, hi in REPORTS)
     return page(
         request,
         '<section class="card result">'
-        f'<div class="done-head"><div class="tick">&#10003;</div><div><h2>{len(r.found):,} unique emails</h2>'
+        f'<div class="done-head"><div class="tick">&#10003;</div><div><h2>{bi(f"{len(r.found):,} unique emails", f"{len(r.found):,} यूनिक ईमेल")}</h2>'
         f'<p>{sub}</p></div></div>'
-        + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", primary=True)
+        + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", f"{out_name} डाउनलोड करें", primary=True)
         + f'<div class="stats">{tiles}</div>{bad}'
-        + f'<details><summary>More reports (optional)</summary>{reports}</details>'
+        + f'<details><summary>More reports (optional) &middot; <span lang="hi">और रिपोर्ट (ज़रूरी नहीं)</span></summary>{reports}</details>'
         + '</section>',
         again=True,
     )
