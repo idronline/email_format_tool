@@ -145,3 +145,26 @@ idr_emails/
   reports.py           optional side reports (--report-dir)
 tests/                 pytest, synthetic fixtures only
 ```
+
+## Deploy and alerts (tools server)
+
+`deploy/idr-deploy.sh` and `deploy/idr_healthcheck.py` are shared with idr-image-search (same files).
+
+One-command deploy of Translate, Audio and Email Collector - add once to `~/.bashrc`:
+
+```bash
+alias idr-deploy='bash ~/email_format_tool/deploy/idr-deploy.sh multilang_ui:idr-translate:5000 audio_generation:idr-audio:5001 email_format_tool:idr-emails:5002'
+```
+
+Then `idr-deploy` pulls each repo, installs requirements if they changed, restarts the
+service, checks it answers, and prints (and posts to Slack) one OK/FAILED line per tool.
+
+Alerts: put `SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...` in `~/idr-tools.env`
+(never in git) and add to `crontab -e`:
+
+```
+*/15 * * * * set -a; . $HOME/idr-tools.env; set +a; python3 $HOME/email_format_tool/deploy/idr_healthcheck.py Translate=https://tools.idronline.org/translate/login Audio=https://tools.idronline.org/audio/login "Email Collector=https://tools.idronline.org/emails/login" "Image Search=https://tools.idronline.org/image-search/login" >> $HOME/idr-health.log 2>&1
+```
+
+Slack gets one message when a tool (or the disk, at 90%) goes bad and one when it is OK again.
+Test with `python3 ~/email_format_tool/deploy/idr_healthcheck.py --test`.
