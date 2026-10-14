@@ -49,7 +49,7 @@ def test_navbar_links_to_all_tools():
     r = client.get("/")
     for path in ("translate", "audio", "emails"):
         assert f'href="https://tools.idronline.org/{path}/"' in r.text
-    assert 'href="https://api.idronline.org/image-search/">Image Search</a>' in r.text
+    assert 'href="https://tools.idronline.org/image-search/">Image Search</a>' in r.text
     assert 'href="https://tools.idronline.org/emails/" class="active"' in r.text
     assert "Sign out" not in r.text  # login is off when no password is set
 
