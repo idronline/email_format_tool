@@ -1,84 +1,9 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="robots" content="noindex">
-    <title>Admin · IDR Tools</title>
-    <link rel="icon" href="https://idronline.org/wp-content/uploads/2018/07/Untitled-design-300x300-1-150x150.jpg" sizes="32x32">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap">
-    <link rel="stylesheet" href="static/idr-tools.css">
-    <style>
-      /* Admin only. Series colours: fixed categorical order, one per tool. */
-      :root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#8a5cd1;--ink-2:#52514e;--rule:#dcdcdc}
-      main.admin{max-width:1040px}
-      .hero .idr-wrap.admin{max-width:1040px}
-      .period{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:1rem}
-      .period a{color:var(--white);text-decoration:none;border:1.5px solid rgba(255,255,255,.6);border-radius:999px;
-                padding:.2rem .8rem;font-size:.85rem;font-weight:600}
-      .period a.on{background:var(--white);color:var(--red);border-color:var(--white)}
-      .period a.lock{margin-left:auto;border-color:transparent;font-weight:400}
-      h2.section{font-size:1.15rem;margin:2rem 0 .8rem;padding-bottom:.4rem;border-bottom:1px solid var(--black)}
-      .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-      .tile{background:var(--light-grey);border-radius:12px;padding:1rem 1.1rem}
-      .tile .name{display:flex;align-items:center;gap:.45rem;font-weight:700;font-size:.92rem}
-      .sw{width:.75rem;height:.75rem;border-radius:3px;flex:none;display:inline-block}
-      .sw.s1{background:var(--s1)}.sw.s2{background:var(--s2)}.sw.s3{background:var(--s3)}.sw.s4{background:var(--s4)}.sw.s5{background:var(--s5)}
-      .tile .big{font-size:2.2rem;font-weight:700;line-height:1.1;margin:.35rem 0 .15rem}
-      .tile .sub{font-size:.82rem;color:var(--ink-2)}
-      .bad{color:var(--red);font-weight:600}
-      /* stacked bar chart */
-      .chart-card{background:var(--light-grey);border-radius:12px;padding:1rem 1.1rem}
-      .legend{display:flex;flex-wrap:wrap;gap:.3rem 1.2rem;font-size:.85rem;margin-bottom:.7rem}
-      .legend span{display:inline-flex;align-items:center;gap:.4rem}
-      .plot{position:relative;height:200px;margin-left:2.2rem;border-bottom:1px solid #b5b5b5}
-      .gridline{position:absolute;left:0;right:0;border-top:1px dashed var(--rule)}
-      .gridline span{position:absolute;left:-2.2rem;top:-.6rem;width:1.9rem;text-align:right;font-size:.72rem;color:var(--ink-2)}
-      .bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:2px}
-      .col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;cursor:default;min-width:0}
-      .col:hover{background:rgba(0,0,0,.04)}
-      .stack{width:min(80%,22px);display:flex;flex-direction:column-reverse;gap:2px;border-radius:4px 4px 0 0;overflow:hidden}
-      .seg.s1{background:var(--s1)}.seg.s2{background:var(--s2)}.seg.s3{background:var(--s3)}.seg.s4{background:var(--s4)}.seg.s5{background:var(--s5)}
-      .xaxis{display:flex;justify-content:space-between;margin-left:2.2rem;font-size:.72rem;color:var(--ink-2);margin-top:.3rem}
-      .tip{position:fixed;pointer-events:none;background:var(--black);color:var(--white);font-size:.8rem;border-radius:8px;
-           padding:.45rem .65rem;line-height:1.4;z-index:10;display:none;white-space:nowrap}
-      .tip .sw{margin-right:.35rem;box-shadow:0 0 0 1.5px var(--black)}
-      details.table-view{margin-top:.8rem}
-      /* tables */
-      table.t{width:100%;border-collapse:collapse;font-size:.88rem;background:var(--white)}
-      table.t th,table.t td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--light-grey);vertical-align:top}
-      table.t th{font-size:.78rem;color:var(--ink-2);font-weight:600}
-      table.t td.n{text-align:right;font-variant-numeric:tabular-nums}
-      table.t th.n{text-align:right}
-      .box{background:var(--light-grey);border-radius:12px;padding:1rem 1.1rem}
-      .box h3{font-size:.95rem;margin:0 0 .6rem;display:flex;align-items:center;gap:.45rem}
-      .kv{display:flex;justify-content:space-between;font-size:.88rem;padding:.25rem 0;border-bottom:1px solid var(--white)}
-      .kv b{font-variant-numeric:tabular-nums}
-      .muted{color:var(--ink-2);font-size:.82rem}
-      .pill{display:inline-block;font-size:.72rem;font-weight:700;border-radius:999px;padding:.05rem .5rem}
-      .pill.up{background:var(--pale-green);color:#127a54}.pill.down{background:var(--pale-red);color:#a8221f}
-      .pill.warn{background:var(--pale-yellow);color:#7a5a00}
-      .scroll{overflow-x:auto}
-    </style>
-  </head>
-  <body>
-    {{ nav|safe }}
-    <header class="hero"><div class="idr-wrap admin">
-      <h1>Admin</h1>
-      <p class="lead">How the IDR tools are used, what went wrong, and whether everything is running.
-        Counts only &mdash; no names, files, texts or email addresses are kept. The one exception is what
-        readers type into the Hindi site's search box, shown in aggregate with anything that looks like
-        an email address or phone number left out.</p>
-      <nav class="period" aria-label="Period">
-        {% for p in periods %}<a href="?days={{ p }}"{% if p == days %} class="on" aria-current="page"{% endif %}>Last {{ p }} days</a>{% endfor %}
-        <a class="lock" href="lock">Lock admin</a>
-      </nav>
-    </div></header>
-    <main class="admin">
+{% extends "admin_base.html" %}
+{% block lead %}How the IDR tools are used, what went wrong, and whether everything is running.
+        Counts only &mdash; no names, files, texts or email addresses are kept.{% endblock %}
+{% block content %}
 
       {% if remote_problem %}<div class="warn">Image Search numbers are missing: {{ remote_problem }}</div>{% endif %}
-      {% if search_problem %}<div class="warn">Hindi site search numbers are missing: {{ search_problem }}</div>{% endif %}
 
       <!-- ── Usage ─────────────────────────────────────────── -->
       <div class="grid">
@@ -158,86 +83,6 @@
         </div>
       </div>
 
-      <!-- ── Hindi site search ─────────────────────────────── -->
-      <h2 class="section">Hindi site search <span class="muted" style="font-weight:400">(the search box on hindi.idronline.org)</span></h2>
-      <div class="grid">
-        <div class="tile">
-          <div class="name"><span class="sw s5"></span>Searches</div>
-          <div class="big">{{ "{:,}".format(search.searches) }}</div>
-          <div class="sub">in the last {{ days }} days &middot; {{ search.per_day }} a day
-            {% if search.change is not none %}&middot; {{ "+" if search.change > 0 else "" }}{{ search.change }}% vs the {{ days }} days before{% endif %}</div>
-          {% if search.failed %}<div class="sub bad">{{ search.failed }} failed</div>{% endif %}
-        </div>
-        <div class="tile">
-          <div class="name">Typical search time</div>
-          <div class="big">{% if search.median_seconds is not none %}{{ "%.1f"|format(search.median_seconds) }} s{% else %}&ndash;{% endif %}</div>
-          <div class="sub">half of all searches are faster</div>
-        </div>
-        <div class="tile">
-          <div class="name">Feedback from readers</div>
-          {% if search_health and search_health.labels and search_health.labels.trainable is defined %}
-          <div class="big">{{ search_health.labels.trainable }} <span style="font-size:1rem;font-weight:400">/ {{ search_health.labels.needed }}</span></div>
-          <div class="sub">rated results the ranking can learn from
-            {% if search_health.weights_learned %}&middot; learned weights in use{% else %}&middot; hand-set weights until {{ search_health.labels.needed }}{% endif %}</div>
-          {% else %}<div class="big">&ndash;</div><div class="sub">no answer from the search server</div>{% endif %}
-        </div>
-      </div>
-
-      <div class="chart-card" style="margin-top:1rem">
-        <div class="legend" aria-hidden="true"><span><i class="sw s5"></i>Searches per day</span></div>
-        <div class="plot" role="img" aria-label="Bar chart of Hindi site searches per day; the table below has the numbers">
-          <div class="gridline" style="bottom:100%"><span>{{ search.peak }}</span></div>
-          <div class="gridline" style="bottom:50%"><span>{{ (search.peak / 2)|round(1)|string|replace('.0','') }}</span></div>
-          <div class="bars">
-            {% for d in search.chart %}
-            <div class="col" data-label="{{ d.label }}" data-total="{{ d.total }}" data-unit="searches"
-                 data-parts='{{ d.parts|map(attribute="name")|list|tojson }}' data-counts='{{ d.parts|map(attribute="count")|list|tojson }}'
-                 data-slots='{{ d.parts|map(attribute="slot")|list|tojson }}'>
-              {% if d.parts %}<div class="stack" style="height:{{ d.parts|sum(attribute='pct') }}%">
-                {% for p in d.parts %}<div class="seg s{{ p.slot }}" style="flex:{{ p.count }}"></div>{% endfor %}
-              </div>{% endif %}
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="xaxis"><span>{{ search.chart[0].label }}</span><span>{{ search.chart[(search.chart|length) // 2].label }}</span><span>{{ search.chart[-1].label }}</span></div>
-        <details class="table-view"><summary>Show as a table</summary>
-          <div class="scroll"><table class="t">
-            <tr><th>Day</th><th class="n">Searches</th></tr>
-            {% for d in search.chart|reverse %}{% if d.total %}<tr><td>{{ d.label }}</td><td class="n">{{ d.total }}</td></tr>{% endif %}{% endfor %}
-          </table></div>
-        </details>
-      </div>
-
-      <div class="grid" style="margin-top:1rem">
-        <div class="box"><h3>What people searched for</h3>
-          {% for name, n in search.kinds %}<div class="kv"><span>{{ name }}</span><b>{{ n }}</b></div>{% else %}<p class="muted">No searches yet.</p>{% endfor %}
-        </div>
-        <div class="box"><h3>Typed in</h3>
-          {% for name, n in search.modes %}<div class="kv"><span>{{ name }}</span><b>{{ n }}</b></div>{% else %}<p class="muted">No searches yet.</p>{% endfor %}
-        </div>
-      </div>
-
-      <div class="grid" style="margin-top:1rem">
-        <div class="box"><h3>Most searched</h3>
-          {% if search.top %}
-          <table class="t"><tr><th>Search</th><th class="n">Times</th></tr>
-            {% for q, n in search.top %}<tr><td>{{ q }}</td><td class="n">{{ n }}</td></tr>{% endfor %}
-          </table>
-          {% else %}<p class="muted">No searches yet.</p>{% endif %}
-        </div>
-        <div class="box"><h3>Worth a look: few word matches</h3>
-          <p class="muted" style="margin:0 0 .5rem">Searches whose words appear in {{ search.few_limit }} articles or fewer. Often fine
-            (a rare name or place); sometimes a missing synonym, alias or spelling to add.</p>
-          {% if search.few_matches %}
-          <table class="t"><tr><th>Search</th><th class="n">Times</th><th class="n">Articles matched</th></tr>
-            {% for q, n, m in search.few_matches %}<tr><td>{{ q }}</td><td class="n">{{ n }}</td><td class="n">{{ m }}</td></tr>{% endfor %}
-          </table>
-          {% else %}<p class="muted">None in the last {{ days }} days.</p>{% endif %}
-        </div>
-      </div>
-      {% if search.hidden %}<p class="muted" style="margin-top:.5rem">{{ search.hidden }} searches not shown because they looked like they contained an email address or phone number.</p>{% endif %}
-
       <!-- ── Problems ──────────────────────────────────────── -->
       <h2 class="section">Problems</h2>
       {% if problems %}
@@ -280,29 +125,6 @@
             {% if image_health.disk_used_pct >= 85 %}<p class="bad" style="font-size:.85rem">Disk is getting full.</p>{% endif %}
           {% else %}<p class="bad" style="font-size:.88rem">No answer from the image server.</p>{% endif %}
         </div>
-        <div class="box"><h3>Hindi site search</h3>
-          {% if search_health %}
-            <div class="kv"><span>Search <span class="pill up">running</span>
-              {% if search_health.version %}<br><span class="muted">{{ search_health.version.commit }} &middot; {{ search_health.version.date }}</span>{% endif %}</span></div>
-            <div class="kv"><span>Articles</span><b>{{ "{:,}".format(search_health.articles) }}</b></div>
-            {% set sh = search_health %}
-            {% if sh.typesense_docs is not none and sh.typesense_docs != sh.articles %}<div class="kv"><span>Keyword index <span class="pill warn">differs</span></span><b>{{ "{:,}".format(sh.typesense_docs) }}</b></div>{% endif %}
-            {% if sh.qdrant_articles is not none and sh.qdrant_articles != sh.articles %}<div class="kv"><span>Meaning index <span class="pill warn">differs</span></span><b>{{ "{:,}".format(sh.qdrant_articles) }}</b></div>{% endif %}
-            {% if sh.typesense_docs is none or sh.qdrant_articles is none %}<div class="kv"><span>Indexes</span><span class="pill down">not answering</span></div>{% endif %}
-            {% if sh.refresh %}
-              <div class="kv"><span>Last weekly refresh</span><span>{{ sh.refresh.at }}
-                <span class="pill {{ 'up' if sh.refresh.ok else 'down' }}">{{ 'OK' if sh.refresh.ok else 'failed' }}</span></span></div>
-              {% if sh.refresh.ok and sh.refresh.added is not none %}<p class="muted" style="margin:.2rem 0">{{ sh.refresh.added }} articles added{% if sh.refresh.removed %}, {{ sh.refresh.removed }} removed{% endif %}</p>{% endif %}
-              {% if not sh.refresh.ok %}<p class="muted">Failed at: {{ sh.refresh.failed_step }}{% if sh.refresh.error %} &middot; {{ sh.refresh.error }}{% endif %}</p>{% endif %}
-            {% endif %}
-            {% if sh.eval %}
-              <div class="kv"><span>Test queries <span class="muted">{{ sh.eval.at }}</span></span><span></span></div>
-              {% for e in sh.eval.sets %}<div class="kv"><span class="muted">{{ e.set|replace('_', ' ') }} ({{ e.n }})</span><b>{{ e.value }}</b></div>{% endfor %}
-            {% endif %}
-            {% if sh.memory %}<div class="kv"><span>Memory</span><b>{{ sh.memory.used_pct }}% &middot; {{ sh.memory.free_gb }} GB free</b></div>
-              {% if sh.memory.used_pct >= 90 %}<p class="bad" style="font-size:.85rem">Memory is nearly full; the search and Image Search share this server.</p>{% endif %}{% endif %}
-          {% else %}<p class="bad" style="font-size:.88rem">No answer from the search server.</p>{% endif %}
-        </div>
         <div class="box"><h3>Alerts</h3>
           {% for name, a in health.alerts.items() %}<div class="kv"><span>{{ name }} <span class="pill down">down</span></span><span class="muted">{{ a.reason }}</span></div>
           {% else %}<p class="muted">No open Slack alerts from the 15-minute check.</p>{% endfor %}
@@ -318,25 +140,4 @@
           <td class="n">{{ r.took or '' }}</td><td>{% if r.ok %}OK{% else %}<span class="bad">Failed</span><br><span class="muted">{{ r.error }}</span>{% endif %}</td></tr>{% endfor %}
       </table></div>
       {% else %}<p class="muted">Nothing yet. Uses are counted from the day this panel was switched on.</p>{% endif %}
-    </main>
-    <footer>IDR internal tools &middot; admin</footer>
-    <script>
-    // Hover a day to see its numbers.
-    (function () {
-      var tip = document.getElementById('tip');
-      function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-      document.querySelectorAll('.col').forEach(function (col) {
-        col.addEventListener('mousemove', function (ev) {
-          var names = JSON.parse(col.dataset.parts), counts = JSON.parse(col.dataset.counts), slots = JSON.parse(col.dataset.slots);
-          var rows = names.map(function (n, i) { return '<div><i class="sw s' + slots[i] + '"></i>' + esc(n) + ': <b>' + counts[i] + '</b></div>'; });
-          tip.innerHTML = '<b>' + esc(col.dataset.label) + '</b> &middot; ' + col.dataset.total + ' ' + esc(col.dataset.unit || 'uses') + rows.join('');
-          tip.style.display = 'block';
-          var x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
-          tip.style.left = x + 'px'; tip.style.top = (ev.clientY + 14) + 'px';
-        });
-        col.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
-      });
-    })();
-    </script>
-  </body>
-</html>
+{% endblock %}

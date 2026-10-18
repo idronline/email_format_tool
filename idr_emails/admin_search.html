@@ -1,0 +1,139 @@
+{% extends "admin_base.html" %}
+{% block lead %}The search boxes on the IDR websites: how much they are used, what readers look for, and
+        whether the search is healthy. This is the one place the admin shows text: what readers typed,
+        in aggregate, with anything that looks like an email address or phone number left out.{% endblock %}
+{% block content %}
+      <style>
+        /* Each site starts with a heading card that sits on the red edge, like the Tools tab's tiles */
+        .site-head{background:var(--light-grey);border-radius:12px;padding:.9rem 1.1rem;margin:2.6rem 0 1rem;
+                   display:flex;align-items:baseline;gap:.8rem;flex-wrap:wrap;border-left:6px solid var(--s5)}
+        .site-head.first{margin-top:0}
+        .site-head h2{font-size:1.25rem;margin:0}
+      </style>
+      {% for site in sites %}{% set s = site.summary %}{% set sh = site.health %}
+      <div class="site-head{% if loop.first %} first{% endif %}"><h2>{{ site.name }}</h2><span class="muted">{{ site.where }}</span></div>
+      {% if site.problem %}<div class="warn">{{ site.name }} numbers are missing: {{ site.problem }}</div>{% endif %}
+      <div class="grid">
+        <div class="tile">
+          <div class="name"><span class="sw s5"></span>Searches</div>
+          <div class="big">{{ "{:,}".format(s.searches) }}</div>
+          <div class="sub">in the last {{ days }} days &middot; {{ s.per_day }} a day
+            {% if s.change is not none %}&middot; {{ "+" if s.change > 0 else "" }}{{ s.change }}% vs the {{ days }} days before{% endif %}</div>
+          {% if s.failed %}<div class="sub bad">{{ s.failed }} failed</div>{% endif %}
+        </div>
+        <div class="tile">
+          <div class="name">Typical search time</div>
+          <div class="big">{% if s.median_seconds is not none %}{{ "%.1f"|format(s.median_seconds) }} s{% else %}&ndash;{% endif %}</div>
+          <div class="sub">half of all searches are faster</div>
+        </div>
+        <div class="tile">
+          <div class="name">Feedback from readers</div>
+          {% if sh and sh.labels and sh.labels.trainable is defined %}
+          <div class="big">{{ sh.labels.trainable }} <span style="font-size:1rem;font-weight:400">/ {{ sh.labels.needed }}</span></div>
+          <div class="sub">rated results the ranking can learn from
+            {% if sh.weights_learned %}&middot; learned weights in use{% else %}&middot; hand-set weights until {{ sh.labels.needed }}{% endif %}</div>
+          {% else %}<div class="big">&ndash;</div><div class="sub">no answer from the search server</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="chart-card" style="margin-top:1rem">
+        <div class="legend" aria-hidden="true"><span><i class="sw s5"></i>Searches per day</span></div>
+        <div class="plot" role="img" aria-label="Bar chart of {{ site.name }} searches per day; the table below has the numbers">
+          <div class="gridline" style="bottom:100%"><span>{{ s.peak }}</span></div>
+          <div class="gridline" style="bottom:50%"><span>{{ (s.peak / 2)|round(1)|string|replace('.0','') }}</span></div>
+          <div class="bars">
+            {% for d in s.chart %}
+            <div class="col" data-label="{{ d.label }}" data-total="{{ d.total }}" data-unit="searches"
+                 data-parts='{{ d.parts|map(attribute="name")|list|tojson }}' data-counts='{{ d.parts|map(attribute="count")|list|tojson }}'
+                 data-slots='{{ d.parts|map(attribute="slot")|list|tojson }}'>
+              {% if d.parts %}<div class="stack" style="height:{{ d.parts|sum(attribute='pct') }}%">
+                {% for p in d.parts %}<div class="seg s{{ p.slot }}" style="flex:{{ p.count }}"></div>{% endfor %}
+              </div>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="xaxis"><span>{{ s.chart[0].label }}</span><span>{{ s.chart[(s.chart|length) // 2].label }}</span><span>{{ s.chart[-1].label }}</span></div>
+        <details class="table-view"><summary>Show as a table</summary>
+          <div class="scroll"><table class="t">
+            <tr><th>Day</th><th class="n">Searches</th></tr>
+            {% for d in s.chart|reverse %}{% if d.total %}<tr><td>{{ d.label }}</td><td class="n">{{ d.total }}</td></tr>{% endif %}{% endfor %}
+          </table></div>
+        </details>
+      </div>
+
+      <div class="grid" style="margin-top:1rem">
+        <div class="box"><h3>What people searched for</h3>
+          {% for name, n in s.kinds %}<div class="kv"><span>{{ name }}</span><b>{{ n }}</b></div>{% else %}<p class="muted">No searches yet.</p>{% endfor %}
+        </div>
+        <div class="box"><h3>Typed in</h3>
+          {% for name, n in s.modes %}<div class="kv"><span>{{ name }}</span><b>{{ n }}</b></div>{% else %}<p class="muted">No searches yet.</p>{% endfor %}
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:1rem">
+        <div class="box"><h3>Most searched</h3>
+          {% if s.top %}
+          <table class="t"><tr><th>Search</th><th class="n">Times</th></tr>
+            {% for q, n in s.top %}<tr><td>{{ q }}</td><td class="n">{{ n }}</td></tr>{% endfor %}
+          </table>
+          {% else %}<p class="muted">No searches yet.</p>{% endif %}
+        </div>
+        <div class="box"><h3>Worth a look: few word matches</h3>
+          <p class="muted" style="margin:0 0 .5rem">Searches whose words appear in {{ s.few_limit }} articles or fewer. Often fine
+            (a rare name or place); sometimes a missing synonym, alias or spelling to add.</p>
+          {% if s.few_matches %}
+          <table class="t"><tr><th>Search</th><th class="n">Times</th><th class="n">Articles matched</th></tr>
+            {% for q, n, m in s.few_matches %}<tr><td>{{ q }}</td><td class="n">{{ n }}</td><td class="n">{{ m }}</td></tr>{% endfor %}
+          </table>
+          {% else %}<p class="muted">None in the last {{ days }} days.</p>{% endif %}
+        </div>
+      </div>
+      {% if s.hidden %}<p class="muted" style="margin-top:.5rem">{{ s.hidden }} searches not shown because they looked like they contained an email address or phone number.</p>{% endif %}
+
+      <h3 style="font-size:.95rem;margin:1.2rem 0 .5rem">Problems</h3>
+      {% if s.problems %}
+      <div class="scroll"><table class="t">
+        <tr><th>What went wrong</th><th class="n">Times</th><th>Last</th></tr>
+        {% for p in s.problems %}<tr><td>{{ p.error }}</td><td class="n">{{ p.count }}</td><td>{{ p.last }}</td></tr>{% endfor %}
+      </table></div>
+      {% else %}<p class="muted">No searches failed in the last {{ days }} days.</p>{% endif %}
+
+      <h3 style="font-size:.95rem;margin:1.2rem 0 .5rem">Health</h3>
+      {% if sh %}
+      <div class="grid">
+        <div class="box"><h3>Server</h3>
+          <div class="kv"><span>Search <span class="pill up">running</span>
+            {% if sh.version %}<br><span class="muted">{{ sh.version.commit }} &middot; {{ sh.version.date }}</span>{% endif %}</span></div>
+          {% if sh.memory %}<div class="kv"><span>Memory</span><b>{{ sh.memory.used_pct }}% used &middot; {{ sh.memory.free_gb }} GB free</b></div>
+            {% if sh.memory.used_pct >= 90 %}<p class="bad" style="font-size:.85rem">Memory is nearly full; other services share this server.</p>{% endif %}{% endif %}
+          <div class="kv"><span>Disk</span><b>{{ sh.disk_used_pct }}% used &middot; {{ sh.disk_free_gb }} GB free</b></div>
+          {% if sh.disk_used_pct >= 85 %}<p class="bad" style="font-size:.85rem">Disk is getting full.</p>{% endif %}
+        </div>
+        <div class="box"><h3>Articles and indexes</h3>
+          <div class="kv"><span>Articles</span><b>{{ "{:,}".format(sh.articles) }}</b></div>
+          {% if sh.typesense_docs is none or sh.qdrant_articles is none %}<div class="kv"><span>Indexes</span><span class="pill down">not answering</span></div>{% else %}
+          <div class="kv"><span>Keyword index{% if sh.typesense_docs != sh.articles %} <span class="pill warn">differs</span>{% endif %}</span><b>{{ "{:,}".format(sh.typesense_docs) }}</b></div>
+          <div class="kv"><span>Meaning index{% if sh.qdrant_articles != sh.articles %} <span class="pill warn">differs</span>{% endif %}</span><b>{{ "{:,}".format(sh.qdrant_articles) }}</b></div>
+          {% if sh.qdrant_chunks %}<div class="kv"><span>Passages</span><b>{{ "{:,}".format(sh.qdrant_chunks) }}</b></div>{% endif %}{% endif %}
+          {% if sh.refresh %}
+            <div class="kv"><span>Last weekly refresh</span><span>{{ sh.refresh.at }}
+              <span class="pill {{ 'up' if sh.refresh.ok else 'down' }}">{{ 'OK' if sh.refresh.ok else 'failed' }}</span></span></div>
+            {% if sh.refresh.ok and sh.refresh.added is not none %}<p class="muted" style="margin:.2rem 0">{{ sh.refresh.added }} articles added{% if sh.refresh.removed %}, {{ sh.refresh.removed }} removed{% endif %}</p>{% endif %}
+            {% if not sh.refresh.ok %}<p class="muted">Failed at: {{ sh.refresh.failed_step }}{% if sh.refresh.error %} &middot; {{ sh.refresh.error }}{% endif %}</p>{% endif %}
+          {% else %}<div class="kv"><span>Last weekly refresh</span><span class="muted">not run yet</span></div>{% endif %}
+        </div>
+        <div class="box"><h3>Test queries</h3>
+          {% if sh.eval %}
+            <p class="muted" style="margin:0 0 .4rem">Latest run, {{ sh.eval.at }}. 1.0 is perfect; for "no answer", fewer results is better.</p>
+            {% for e in sh.eval.sets %}<div class="kv"><span>{{ e.set|replace('_', ' ')|capitalize }} <span class="muted">({{ e.n }})</span></span><b>{{ e.value }}</b></div>{% endfor %}
+          {% else %}<p class="muted">No saved test run yet (scripts/26_eval_rules.py --save).</p>{% endif %}
+        </div>
+      </div>
+      {% else %}<p class="bad" style="font-size:.88rem">No answer from the search server.</p>{% endif %}
+      {% endfor %}
+      {% for name in not_connected %}
+      <div class="site-head{% if not sites and loop.first %} first{% endif %}"><h2>{{ name }}</h2>
+        <span class="muted">Not connected yet. Set its feed URL on the tools server to show it here.</span></div>
+      {% endfor %}
+{% endblock %}

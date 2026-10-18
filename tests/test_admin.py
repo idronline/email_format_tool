@@ -49,7 +49,8 @@ def client(monkeypatch):
     ], {"disk_used_pct": 70, "disk_free_gb": 9.1, "searchable_images": 8639,
         "indexer": {"is_running": 0}, "weekly_update": {"at": "2026-10-11 22:41", "ok": True, "message": "OK"},
         "version": {"commit": "abc1234", "date": "2026-10-14 10:00", "subject": "x"}}, None))
-    monkeypatch.setattr(admin, "fetch_hindi_search", lambda since, days: (SEARCH_EVENTS, SEARCH_QUERIES, SEARCH_HEALTH, None))
+    monkeypatch.setattr(admin, "fetch_search", lambda url, since, days: (SEARCH_EVENTS, SEARCH_QUERIES, SEARCH_HEALTH, None))
+    monkeypatch.delenv("ENGLISH_SEARCH_USAGE_URL", raising=False)
     monkeypatch.setattr(admin, "local_health", lambda: {
         "tools": [{"name": "Translate", "up": True, "version": None}, {"name": "Audio", "up": False, "version": None}],
         "disk_used_pct": 60, "disk_free_gb": 20.0, "alerts": {}})
@@ -148,33 +149,54 @@ def test_usage_log_and_export_token(monkeypatch, tmp_path):
     assert idr_usage.export_token() is None and not idr_usage.token_ok("")
 
 
-def test_hindi_search_section(client):
+def test_tools_tab_has_no_search(client):
     unlock(client)
     t = client.get("/").text
-    assert "Hindi site search" in t
-    assert "articles about nrega" in t and "हिंसा" in t           # query lists
-    assert "2 searches not shown" in t                             # privacy filter note
-    assert "Typesense search failed" in t                          # problems table
-    assert "def5678" in t and "979" in t and "differs" in t       # health: version, index mismatch
-    assert "2 <span" in t and "/ 200" in t                         # labels towards the ranker
-    assert "email address or phone number" in t                    # privacy line in the header
+    assert "Uses per day" in t and 'href="search?days=30"' in t       # tab link keeps the period
+    assert "articles about nrega" not in t and "Typesense search failed" not in t
+    assert "email address or phone number" not in t                    # tools keep counts only
+
+
+def test_search_tab(client):
+    unlock(client)
+    t = client.get("/search?days=7").text
+    assert "Hindi search" in t and "hindi.idronline.org" in t
+    assert 'class="on" aria-current="page">Search' in t and "Last 7 days" in t
+    assert "articles about nrega" in t and "हिंसा" in t                # query lists
+    assert "2 searches not shown" in t                                 # privacy filter note
+    assert "Typesense search failed" in t                              # its own problems table
+    assert "def5678" in t and "979" in t and "differs" in t           # health: version, index mismatch
+    assert "2 <span" in t and "/ 200" in t                             # labels towards the ranker
+    assert "English search" in t and "Not connected yet" in t          # English listed, not fetched
+    assert "email address or phone number" in t                        # privacy line in the header
+
+
+def test_search_tab_shows_english_once_connected(client, monkeypatch):
+    monkeypatch.setenv("ENGLISH_SEARCH_USAGE_URL", "https://example.org/api/usage")
+    unlock(client)
+    t = client.get("/search").text
+    assert t.count("No searches failed") + t.count("Typesense search failed") >= 2 and "Not connected yet" not in t
+
+
+def test_search_tab_needs_the_admin_password(client):
+    r = client.get("/search")
+    assert "Admin password" in r.text and "Hindi search" not in r.text
 
 
 def test_hindi_search_summary():
-    s = admin.summarize_search(SEARCH_EVENTS, SEARCH_QUERIES, 30, now=NOW)
+    s = admin.summarize_search(SEARCH_EVENTS, SEARCH_QUERIES, 30, "Hindi search", now=NOW)
     assert s["searches"] == 2 and s["failed"] == 1 and s["before"] == 1 and s["change"] == 100
     assert s["median_seconds"] == 1.4
     assert dict(s["kinds"]) == {"Topic or words": 1, "A year": 1}
     assert dict(s["modes"]) == {"Hindi script": 1, "English letters": 1}
-    assert s["problems"][0]["tool"] == "Hindi Search" and s["problems"][0]["count"] == 1
+    assert s["problems"][0]["tool"] == "Hindi search" and s["problems"][0]["count"] == 1
     assert sum(d["total"] for d in s["chart"]) == 2
 
 
-def test_missing_hindi_search_feed_is_shown_not_fatal(client, monkeypatch):
-    monkeypatch.setattr(admin, "fetch_hindi_search", lambda since, days: ([], None, None, "it timed out"))
+def test_missing_search_feed_is_shown_not_fatal(client, monkeypatch):
+    monkeypatch.setattr(admin, "fetch_search", lambda url, since, days: ([], None, None, "it timed out"))
     unlock(client)
-    r = client.get("/")
+    r = client.get("/search")
     assert r.status_code == 200
-    assert "Hindi site search numbers are missing: it timed out" in r.text
+    assert "Hindi search numbers are missing: it timed out" in r.text
     assert "No answer from the search server" in r.text
-

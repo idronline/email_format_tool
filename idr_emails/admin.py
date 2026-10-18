@@ -6,10 +6,11 @@ Run:  uvicorn idr_emails.admin:app --host 127.0.0.1 --port 5003
 Not linked anywhere. Opening it needs the normal IDR tools sign-in and then the admin
 password (ADMIN_PASSWORD in ~/idr-tools.env); without ADMIN_PASSWORD the panel is off.
 Usage comes from ~/idr-usage.db on this server (Translate, Audio, Email Collector) and
-from /api/usage on the image server: Image Search, and the Hindi site search (its own section,
-since it is the public site's search box rather than a staff tool). Only counts and settings
-are stored; the one exception is the Hindi site search's queries, sent in aggregate with
-anything that looks like an email address or phone number left out.
+from Image Search's /api/usage on the image server. Only counts and settings are stored.
+
+The Search tab (/search) shows the public websites' search boxes (Hindi, later English), each
+from its search API's /api/usage. It is the one place the panel shows text: what readers typed,
+in aggregate, with anything that looks like an email address or phone number left out.
 """
 
 import asyncio
@@ -41,7 +42,14 @@ IST = timezone(timedelta(hours=5, minutes=30))
 ADMIN_COOKIE = "idr_admin"
 ADMIN_MAX_AGE = 12 * 3600
 IMAGE_SEARCH_FEED = os.environ.get("IMAGE_SEARCH_USAGE_URL", "https://api.idronline.org/image-search/api/usage")
-HINDI_SEARCH_FEED = os.environ.get("HINDI_SEARCH_USAGE_URL", "https://api.idronline.org/hindisearch/api/usage")
+# Public website search boxes, shown on the Search tab. A site without a feed URL is listed as
+# not connected (set ENGLISH_SEARCH_USAGE_URL once the English search runs).
+SEARCH_SITES = [
+    {"key": "hindi", "name": "Hindi search", "where": "the search box on hindi.idronline.org",
+     "env": "HINDI_SEARCH_USAGE_URL", "default": "https://api.idronline.org/api/usage"},
+    {"key": "english", "name": "English search", "where": "the search box on idronline.org",
+     "env": "ENGLISH_SEARCH_USAGE_URL", "default": ""},
+]
 # name=folder-in-home:port for the tools on this server (folder names differ from repo names)
 LOCAL_TOOLS = os.environ.get("IDR_ADMIN_TOOLS",
                              "Translate=multilang_ui:5000,Audio=audio_generation:5001,Email Collector=email_format_tool:5002")
@@ -54,7 +62,7 @@ TOOLS = {
     "emails": ("Email Collector", 3),
     "image-search": ("Image Search", 4),
 }
-SEARCH_SLOT = 5  # colour slot for the Hindi site search section
+SEARCH_SLOT = 5  # colour slot for the search sections
 SEARCH_MODES = {"dev": "Hindi script", "roman": "English letters", "mixed": "Both scripts"}
 SEARCH_KINDS = {"search": "Topic or words", "year": "A year", "series": "A series or format",
                 "author": "An author", "place": "A place"}
@@ -113,13 +121,13 @@ def _fetch_feed(url, query):
     """(data, problem) from a /api/usage feed on another server."""
     token = idr_usage.export_token()
     if not token:
-        return None, "SECRET_KEY is not set, so the image server can't be asked."
+        return None, "SECRET_KEY is not set, so the other server can't be asked."
     req = urllib.request.Request(f"{url}?{query}", headers={"X-IDR-Usage-Token": token})
     try:
         with urllib.request.urlopen(req, timeout=8) as resp:
             return json.load(resp), None
     except Exception as e:  # noqa: BLE001 - show it on the page instead of failing
-        return None, f"The image server didn't answer ({type(e).__name__}: {getattr(e, 'reason', e)})."
+        return None, f"The server didn't answer ({type(e).__name__}: {getattr(e, 'reason', e)})."
 
 
 def fetch_image_search(since):
@@ -128,9 +136,9 @@ def fetch_image_search(since):
     return (data.get("events", []), data.get("health"), None) if data else ([], None, problem)
 
 
-def fetch_hindi_search(since, days):
-    """(events, queries, health, problem) from the Hindi site search's /api/usage."""
-    data, problem = _fetch_feed(HINDI_SEARCH_FEED, f"since={since:.0f}&days={days}")
+def fetch_search(url, since, days):
+    """(events, queries, health, problem) from a website search's /api/usage."""
+    data, problem = _fetch_feed(url, f"since={since:.0f}&days={days}")
     if not data:
         return [], None, None, problem
     return data.get("events", []), data.get("queries"), data.get("health"), None
@@ -246,8 +254,8 @@ def summarize(events, days, now=None):
             "recent": [describe(e) for e in reversed(current[-50:])], "total": len(current)}
 
 
-def summarize_search(events, queries, days, now=None):
-    """The Hindi site search section, from its usage rows (covering 2 x days) and query lists."""
+def summarize_search(events, queries, days, name="Search", now=None):
+    """One website search's section, from its usage rows (covering 2 x days) and query lists."""
     now = now or time.time()
     start, prev_start = now - days * 86400, now - 2 * days * 86400
     current = [e for e in events if e["ts"] >= start]
@@ -260,7 +268,7 @@ def summarize_search(events, queries, days, now=None):
     per_day = Counter(day_of(e["ts"]) for e in ok)
     peak = max([per_day[d] for d in dates] + [1])
     chart = [{"date": d.isoformat(), "label": d.strftime("%d %b"), "total": per_day[d],
-              "parts": [{"key": "hindi-search", "name": "Searches", "slot": SEARCH_SLOT, "count": per_day[d],
+              "parts": [{"key": "search", "name": "Searches", "slot": SEARCH_SLOT, "count": per_day[d],
                          "pct": per_day[d] / peak * 100}] if per_day[d] else []}
              for d in dates]
 
@@ -270,7 +278,7 @@ def summarize_search(events, queries, days, now=None):
             f = failures[e.get("error") or "unknown error"]
             f["count"] += 1
             f["last"] = max(f["last"], e["ts"])
-    problems = [{"tool": "Hindi Search", "error": err, "count": f["count"],
+    problems = [{"tool": name, "error": err, "count": f["count"],
                  "last": datetime.fromtimestamp(f["last"], IST).strftime("%d %b %H:%M")} for err, f in failures.items()]
 
     details = [e["details"] for e in ok]
@@ -319,24 +327,43 @@ def describe(e):
 # ROUTES
 # ─────────────────────────────────────────────
 
-@app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
-async def dashboard(request: Request, days: int = 30):
+def gate(request: Request):
+    """A response to send instead of the page (panel off, or not unlocked), else None."""
     if not admin_password():
         return HTMLResponse("Not found", 404)
     if not unlocked(request):
         return page("admin_unlock.html")
+    return None
+
+
+@app.get("/", response_class=HTMLResponse, dependencies=[Depends(require_login)])
+async def dashboard(request: Request, days: int = 30):
+    if (blocked := gate(request)) is not None:
+        return blocked
     days = days if days in PERIODS else 30
     since = time.time() - 2 * days * 86400
     local = idr_usage.events_since(since)
-    (remote, image_health, remote_problem), (s_events, s_queries, search_health, search_problem), health = \
-        await asyncio.gather(asyncio.to_thread(fetch_image_search, since),
-                             asyncio.to_thread(fetch_hindi_search, since, days), asyncio.to_thread(local_health))
+    (remote, image_health, remote_problem), health = await asyncio.gather(
+        asyncio.to_thread(fetch_image_search, since), asyncio.to_thread(local_health))
     data = summarize(sorted(local + remote, key=lambda e: e["ts"]), days)
-    search = summarize_search(s_events, s_queries, days)
-    data["problems"] = sorted(data["problems"] + search["problems"], key=lambda p: (-p["count"], p["tool"]))
-    return page("admin.html", periods=PERIODS, health=health, image_health=image_health,
-                remote_problem=remote_problem, search=search, search_health=search_health,
-                search_problem=search_problem, **data)
+    return page("admin.html", tab="tools", periods=PERIODS, health=health, image_health=image_health,
+                remote_problem=remote_problem, **data)
+
+
+@app.get("/search", response_class=HTMLResponse, dependencies=[Depends(require_login)])
+async def search_tab(request: Request, days: int = 30):
+    if (blocked := gate(request)) is not None:
+        return blocked
+    days = days if days in PERIODS else 30
+    since = time.time() - 2 * days * 86400
+    connected = [(site, url) for site in SEARCH_SITES if (url := os.environ.get(site["env"], site["default"]))]
+    feeds = await asyncio.gather(*(asyncio.to_thread(fetch_search, url, since, days) for _, url in connected))
+    sites = [{"key": site["key"], "name": site["name"], "where": site["where"], "health": health, "problem": problem,
+              "summary": summarize_search(events, queries, days, site["name"])}
+             for (site, _), (events, queries, health, problem) in zip(connected, feeds)]
+    not_connected = [site["name"] for site in SEARCH_SITES if site not in [c for c, _ in connected]]
+    return page("admin_search.html", tab="search", periods=PERIODS, days=days, sites=sites,
+                not_connected=not_connected)
 
 
 @app.post("/unlock", dependencies=[Depends(require_login)])
