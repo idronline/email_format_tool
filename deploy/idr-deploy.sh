@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# One-command deploy for the IDR tools. Same file in email_format_tool/deploy/ and
-# idr-image-search/deploy/. For each "folder:service:port" it:
+# One-command deploy for the IDR tools. Master copy in email_format_tool/deploy/;
+# shared/sync.sh copies it to idr-image-search/deploy/. For each "folder:service:port" it:
 #   git pull --ff-only  ->  pip install -r requirements.txt (only if it changed)
 #   ->  restart the service  ->  check the tool answers on 127.0.0.1:<port>/login
 # and prints one OK/FAILED line per tool (also sent to Slack if SLACK_WEBHOOK_URL is set).

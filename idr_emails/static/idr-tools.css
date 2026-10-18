@@ -1,6 +1,7 @@
 /* Shared look for the IDR tools (Translate, Audio, Email Collector, Image Search),
-   modelled on hindi.idronline.org. The same file is copied into every tool repo -
-   change it in all four. Hindi lines use <span class="hi" lang="hi"> under the English. */
+   modelled on hindi.idronline.org.
+   Master copy: email_format_tool/shared/ - edit it there, then run shared/sync.sh to copy it to every tool.
+   Hindi lines use <span class="hi" lang="hi"> under the English. */
 :root{--white:#fff;--light-grey:#F0F0F0;--grey:#C2C2C2;--dark-grey:#6E6E6E;--black:#000;
       --red:#DF373B;--green:#1BB47C;--magenta:#BC0FBF;--yellow:#F2B705;
       --pale-green:#F3F8F0;--pale-yellow:#FFF6DD;--pale-red:#FDECEC;

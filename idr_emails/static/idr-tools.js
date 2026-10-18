@@ -1,5 +1,5 @@
 /* Shared behaviour for the IDR tools (Translate, Audio, Email Collector, Image Search).
-   The same file is copied into every tool repo - change it in all four.
+   Master copy: email_format_tool/shared/ - edit it there, then run shared/sync.sh to copy it to every tool.
    - .drop: drag-and-drop file box that shows the chosen file's name and size
    - form[data-working="<id>"]: submit button stays disabled until the form is complete;
      on submit the form is replaced by the #<id> "working" card with a running timer */

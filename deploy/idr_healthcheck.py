@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Check that the IDR tools answer and the disk isn't full; tell Slack when that changes.
 
-Same file in email_format_tool/deploy/ and idr-image-search/deploy/. Run from cron every
-15 minutes, with ~/idr-tools.env loaded (it holds SLACK_WEBHOOK_URL):
+Master copy in email_format_tool/deploy/; shared/sync.sh copies it to idr-image-search/deploy/.
+Run from cron every 15 minutes, with ~/idr-tools.env loaded (it holds SLACK_WEBHOOK_URL):
 
   idr_healthcheck.py Translate=https://tools.idronline.org/translate/login ...
   idr_healthcheck.py --test        # send one test message to Slack

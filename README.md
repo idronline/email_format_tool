@@ -168,3 +168,17 @@ Alerts: put `SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...` in `~/idr-t
 
 Slack gets one message when a tool (or the disk, at 90%) goes bad and one when it is OK again.
 Test with `python3 ~/email_format_tool/deploy/idr_healthcheck.py --test`.
+
+## Shared files for all IDR tools
+
+The look, navbar, sign-in and deploy scripts are shared by all four tools. Their **master
+copies** live here, in `shared/` (stylesheet, script, Flask navbar/sign-in page/login code)
+and `deploy/` (idr-deploy.sh, idr_healthcheck.py). Edit only these, then run:
+
+```bash
+shared/sync.sh            # copies them into Translate, Audio, Image Search (and idr_emails/static)
+shared/sync.sh --check    # just reports any copy that differs
+```
+
+Then commit and push each repo it lists, and run `idr-deploy` on the servers. This expects
+the four repos side by side in one folder (as on the laptop).
