@@ -5,6 +5,8 @@ No real data is ever used: every address is on example.com / example.org.
 
 import csv
 import io
+import os
+import tempfile
 import subprocess
 import sys
 import zipfile
@@ -14,6 +16,8 @@ import pandas as pd
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+# usage rows (see idr_usage.py) go to a throwaway file, never ~/idr-usage.db
+os.environ["IDR_USAGE_DB"] = os.path.join(tempfile.mkdtemp(prefix="idr_usage_test_"), "usage.db")
 PREF = "The IDR Weekly,Off The Record"
 HEADER = ["email", "First Name", "Last Name", "Newsletter Preference"]
 

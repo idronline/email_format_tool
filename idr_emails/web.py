@@ -13,6 +13,7 @@ import html
 import os
 import shutil
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import AUDIENCES
+from .idr_usage import record as record_usage
 from .login import login_enabled, make_routes, require_login
 from .pipeline import run
 
@@ -98,16 +100,29 @@ def process(request: Request,
             zipfile_: UploadFile = File(..., alias="zipfile"),
             fix_typos: bool = Form(False),
             audience: str = Form("")):
+    started = time.time()
     if audience not in AUDIENCES:
         return error(request, "Please choose who the list is for: English or Hindi. · कृपया चुनें कि लिस्ट किसके लिए है: English या Hindi।")
     with tempfile.TemporaryDirectory(prefix="idr_emails_") as tmp:
         zpath = Path(tmp) / "input.zip"
         with open(zpath, "wb") as fh:
             shutil.copyfileobj(zipfile_.file, fh)
+        size_kb = round(zpath.stat().st_size / 1024)
         if not zipfile.is_zipfile(zpath):
+            record_usage("emails", ok=False, seconds=time.time() - started, error="not a valid zip file",
+                         audience=audience, size_kb=size_kb)
             return error(request, f"{zipfile_.filename} is not a valid zip file. · यह सही zip फ़ाइल नहीं है।")
-        r = run(zpath, fix_typos=fix_typos, audience=audience)
-        texts = r.csv_texts()
+        try:
+            r = run(zpath, fix_typos=fix_typos, audience=audience)
+            texts = r.csv_texts()
+        except Exception as e:
+            record_usage("emails", ok=False, seconds=time.time() - started, error=str(e) or type(e).__name__,
+                         audience=audience, size_kb=size_kb)
+            raise
+    # counts only - never the addresses themselves
+    record_usage("emails", seconds=time.time() - started, audience=audience, size_kb=size_kb,
+                 files_read=r.ok, unreadable=len(r.bad), emails=len(r.found), no_name=r.no_name,
+                 possible_typos=r.suspicious_count, fix_typos=bool(fix_typos))
 
     out_name = f"subscribers_{audience}.csv"
     sub = " &middot; ".join(esc(x) for x in [zipfile_.filename or "", audience.title(),

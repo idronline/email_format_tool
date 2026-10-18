@@ -182,3 +182,22 @@ shared/sync.sh --check    # just reports any copy that differs
 
 Then commit and push each repo it lists, and run `idr-deploy` on the servers. This expects
 the four repos side by side in one folder (as on the laptop).
+
+## Admin panel (`https://tools.idronline.org/admin/`)
+
+Not linked from any page. Needs the normal IDR tools sign-in, then the admin password
+(`ADMIN_PASSWORD` in `~/idr-tools.env`; without it the panel is switched off). It shows:
+
+- **Usage** - uses per tool per day, and how each tool is used (languages, voices, minutes of
+  audio, emails collected, how often Image Search finds a match).
+- **Problems** - failures grouped by error, and the slowest runs.
+- **Health** - each tool running or not and its code version, disk space on both servers,
+  Image Search's index and last weekly update, open Slack alerts.
+
+Every tool records one row per use with `idr_usage.record()` (master copy in `shared/`) into
+`~/idr-usage.db` on its server - counts and settings only, never file names, texts, email
+addresses or images. Image Search's rows come from the image server's `/api/usage`, which
+only answers with a token derived from the shared `SECRET_KEY`.
+
+Runs as its own service: `uvicorn idr_emails.admin:app --host 127.0.0.1 --port 5003`, behind
+nginx at `/admin/` (see `deploy/nginx-tools.idronline.org.conf`).

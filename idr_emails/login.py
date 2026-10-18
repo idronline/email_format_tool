@@ -24,8 +24,6 @@ COOKIE = "idr_login"
 MAX_AGE = 14 * 24 * 3600
 LOGIN_PAGE = (Path(__file__).parent / "login.html").read_text(encoding="utf-8")
 
-router = APIRouter()
-
 
 def credentials():
     user, pw = os.environ.get("APP_USERNAME"), os.environ.get("APP_PASSWORD")
@@ -84,6 +82,9 @@ def _login_page(nav_html, error="", nxt="/", username=""):
 
 
 def make_routes(nav_html):
+    """/login and /logout for one app (a fresh router each call, so two apps can use it)."""
+    router = APIRouter()
+
     @router.get("/login", response_class=HTMLResponse)
     def login_form(request: Request, next: str = ""):
         nxt = _safe_next(request, next)

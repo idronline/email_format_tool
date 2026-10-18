@@ -4,6 +4,7 @@
 # Master copies (edit only these):
 #   email_format_tool/shared/static/   idr-tools.css, idr-tools.js        -> all four tools
 #   email_format_tool/shared/flask/    _nav.html, login.html, idr_login.py -> Translate, Audio, Image Search
+#   email_format_tool/shared/          idr_usage.py (usage log for /admin)  -> all four tools
 #   email_format_tool/deploy/          idr-deploy.sh, idr_healthcheck.py   -> Image Search
 # (Email Collector's own nav.html / login.html / login.py are FastAPI versions and stay separate.)
 #
@@ -21,6 +22,7 @@ COPIES=(
   "shared/flask/_nav.html       multilang_translation_ui/templates audio_generation/templates idr-image-search/templates"
   "shared/flask/login.html      multilang_translation_ui/templates audio_generation/templates idr-image-search/templates"
   "shared/flask/idr_login.py    multilang_translation_ui audio_generation idr-image-search"
+  "shared/idr_usage.py          email_format_tool/idr_emails multilang_translation_ui audio_generation idr-image-search"
   "deploy/idr-deploy.sh         idr-image-search/deploy"
   "deploy/idr_healthcheck.py    idr-image-search/deploy"
 )

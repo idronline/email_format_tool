@@ -3,6 +3,7 @@
 import base64
 import csv
 import io
+import os
 import re
 
 import pytest
@@ -145,3 +146,18 @@ def test_password_change_signs_everyone_out(login_on, monkeypatch):
 
 def test_static_files_need_no_login(login_on):
     assert client.get("/static/idr-tools.css").status_code == 200
+
+
+def test_usage_is_counted_without_addresses():
+    from idr_emails import idr_usage
+    if os.path.exists(idr_usage.DB_PATH):
+        os.remove(idr_usage.DB_PATH)
+    z = make_zip({"a.csv": "email,name\nsecret.person@example.com,Secret Person\nb@example.org,\n"})
+    post({"zipfile": ("in.zip", z)}, {"audience": "english"})
+    post({"zipfile": ("bad.zip", b"not a zip")}, {"audience": "hindi"})
+    good, bad = idr_usage.events_since(0)
+    assert good["tool"] == "emails" and good["ok"] == 1
+    assert {k: good["details"][k] for k in ("audience", "emails", "files_read", "no_name")} == \
+        {"audience": "english", "emails": 2, "files_read": 1, "no_name": 1}
+    assert "secret" not in str(good).lower() and "example" not in str(good)
+    assert bad["ok"] == 0 and bad["details"]["audience"] == "hindi"

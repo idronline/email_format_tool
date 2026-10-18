@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="robots" content="noindex">
+    <title>Admin · IDR Tools</title>
+    <link rel="icon" href="https://idronline.org/wp-content/uploads/2018/07/Untitled-design-300x300-1-150x150.jpg" sizes="32x32">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&family=Open+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="static/idr-tools.css">
+  </head>
+  <body>
+    {{ nav|safe }}
+    <header class="hero"><div class="idr-wrap" style="max-width:472px">
+      <h1>Admin</h1>
+      <p class="lead">Enter the admin password to see how the tools are used.</p>
+    </div></header>
+    <main style="max-width:472px">
+      <form class="card" method="post" action="unlock">
+        {% if error %}<div class="warn" style="background:var(--pale-red);border-left-color:var(--red)">{{ error }}</div>{% endif %}
+        <div class="step">
+          <label class="step-label" for="password" style="margin-bottom:.4rem">Admin password</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary">Open admin</button>
+      </form>
+    </main>
+    <footer>IDR internal tools &middot; admin</footer>
+  </body>
+</html>
