@@ -12,6 +12,29 @@ NOW = time.time()
 DAY = 86400
 
 
+SEARCH_EVENTS = [
+    {"ts": NOW - 3600, "tool": "hindi-search", "ok": 1, "seconds": 1.4, "error": None,
+     "details": {"mode": "dev", "kind": "search", "results": 90, "keyword_match": True}},
+    {"ts": NOW - 4000, "tool": "hindi-search", "ok": 1, "seconds": 0.8, "error": None,
+     "details": {"mode": "roman", "kind": "year", "results": 80, "keyword_match": True}},
+    {"ts": NOW - 5000, "tool": "hindi-search", "ok": 0, "seconds": 2.0, "error": "RuntimeError: Typesense search failed",
+     "details": {}},
+    {"ts": NOW - 40 * DAY, "tool": "hindi-search", "ok": 1, "seconds": 1.0, "error": None,
+     "details": {"mode": "dev", "kind": "search", "results": 90, "keyword_match": True}},
+]
+SEARCH_QUERIES = {"top": [["2026", 36], ["हिंसा", 11]], "few_matches": [["articles about nrega", 1, 3]],
+                  "few_matches_limit": 5, "hidden": 2}
+SEARCH_HEALTH = {"version": {"commit": "def5678", "date": "2026-10-18 09:00", "subject": "x"}, "articles": 981,
+                 "typesense_docs": 981, "qdrant_articles": 979, "qdrant_chunks": 22620,
+                 "refresh": {"at": "2026-10-10 19:14", "ok": True, "outcome": "rebuilt", "articles": 981,
+                             "added": 5, "removed": 0, "failed_step": None, "error": None},
+                 "eval": {"file": "after4.json", "at": "2026-10-14 08:00",
+                          "sets": [{"set": "known_item", "metric": "mrr", "value": 0.97, "n": 15}]},
+                 "labels": {"total": 3, "trainable": 2, "needed": 200}, "ranker": "ranker_v2",
+                 "weights_learned": False, "memory": {"used_pct": 72, "free_gb": 2.2},
+                 "disk_used_pct": 70, "disk_free_gb": 9.1}
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("ADMIN_PASSWORD", "admin-secret")
@@ -26,6 +49,7 @@ def client(monkeypatch):
     ], {"disk_used_pct": 70, "disk_free_gb": 9.1, "searchable_images": 8639,
         "indexer": {"is_running": 0}, "weekly_update": {"at": "2026-10-11 22:41", "ok": True, "message": "OK"},
         "version": {"commit": "abc1234", "date": "2026-10-14 10:00", "subject": "x"}}, None))
+    monkeypatch.setattr(admin, "fetch_hindi_search", lambda since, days: (SEARCH_EVENTS, SEARCH_QUERIES, SEARCH_HEALTH, None))
     monkeypatch.setattr(admin, "local_health", lambda: {
         "tools": [{"name": "Translate", "up": True, "version": None}, {"name": "Audio", "up": False, "version": None}],
         "disk_used_pct": 60, "disk_free_gb": 20.0, "alerts": {}})
@@ -122,3 +146,35 @@ def test_usage_log_and_export_token(monkeypatch, tmp_path):
     assert idr_usage.token_ok(idr_usage.export_token()) and not idr_usage.token_ok("guess")
     monkeypatch.delenv("SECRET_KEY")
     assert idr_usage.export_token() is None and not idr_usage.token_ok("")
+
+
+def test_hindi_search_section(client):
+    unlock(client)
+    t = client.get("/").text
+    assert "Hindi site search" in t
+    assert "articles about nrega" in t and "हिंसा" in t           # query lists
+    assert "2 searches not shown" in t                             # privacy filter note
+    assert "Typesense search failed" in t                          # problems table
+    assert "def5678" in t and "979" in t and "differs" in t       # health: version, index mismatch
+    assert "2 <span" in t and "/ 200" in t                         # labels towards the ranker
+    assert "email address or phone number" in t                    # privacy line in the header
+
+
+def test_hindi_search_summary():
+    s = admin.summarize_search(SEARCH_EVENTS, SEARCH_QUERIES, 30, now=NOW)
+    assert s["searches"] == 2 and s["failed"] == 1 and s["before"] == 1 and s["change"] == 100
+    assert s["median_seconds"] == 1.4
+    assert dict(s["kinds"]) == {"Topic or words": 1, "A year": 1}
+    assert dict(s["modes"]) == {"Hindi script": 1, "English letters": 1}
+    assert s["problems"][0]["tool"] == "Hindi Search" and s["problems"][0]["count"] == 1
+    assert sum(d["total"] for d in s["chart"]) == 2
+
+
+def test_missing_hindi_search_feed_is_shown_not_fatal(client, monkeypatch):
+    monkeypatch.setattr(admin, "fetch_hindi_search", lambda since, days: ([], None, None, "it timed out"))
+    unlock(client)
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Hindi site search numbers are missing: it timed out" in r.text
+    assert "No answer from the search server" in r.text
+

@@ -6,7 +6,10 @@ Run:  uvicorn idr_emails.admin:app --host 127.0.0.1 --port 5003
 Not linked anywhere. Opening it needs the normal IDR tools sign-in and then the admin
 password (ADMIN_PASSWORD in ~/idr-tools.env); without ADMIN_PASSWORD the panel is off.
 Usage comes from ~/idr-usage.db on this server (Translate, Audio, Email Collector) and
-from Image Search's /api/usage on the image server. Only counts and settings are stored.
+from /api/usage on the image server: Image Search, and the Hindi site search (its own section,
+since it is the public site's search box rather than a staff tool). Only counts and settings
+are stored; the one exception is the Hindi site search's queries, sent in aggregate with
+anything that looks like an email address or phone number left out.
 """
 
 import asyncio
@@ -38,6 +41,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 ADMIN_COOKIE = "idr_admin"
 ADMIN_MAX_AGE = 12 * 3600
 IMAGE_SEARCH_FEED = os.environ.get("IMAGE_SEARCH_USAGE_URL", "https://api.idronline.org/image-search/api/usage")
+HINDI_SEARCH_FEED = os.environ.get("HINDI_SEARCH_USAGE_URL", "https://api.idronline.org/hindisearch/api/usage")
 # name=folder-in-home:port for the tools on this server (folder names differ from repo names)
 LOCAL_TOOLS = os.environ.get("IDR_ADMIN_TOOLS",
                              "Translate=multilang_ui:5000,Audio=audio_generation:5001,Email Collector=email_format_tool:5002")
@@ -50,6 +54,10 @@ TOOLS = {
     "emails": ("Email Collector", 3),
     "image-search": ("Image Search", 4),
 }
+SEARCH_SLOT = 5  # colour slot for the Hindi site search section
+SEARCH_MODES = {"dev": "Hindi script", "roman": "English letters", "mixed": "Both scripts"}
+SEARCH_KINDS = {"search": "Topic or words", "year": "A year", "series": "A series or format",
+                "author": "An author", "place": "A place"}
 LANGUAGES = {"hi": "Hindi", "en": "English", "bn": "Bengali", "gu": "Gujarati", "kn": "Kannada", "mr": "Marathi"}
 PERIODS = (7, 30, 90)
 
@@ -101,18 +109,31 @@ def page(name, status=200, **ctx):
 # DATA
 # ─────────────────────────────────────────────
 
-def fetch_image_search(since):
-    """(events, health, problem) from the image server's /api/usage."""
+def _fetch_feed(url, query):
+    """(data, problem) from a /api/usage feed on another server."""
     token = idr_usage.export_token()
     if not token:
-        return [], None, "SECRET_KEY is not set, so the image server can't be asked."
-    req = urllib.request.Request(f"{IMAGE_SEARCH_FEED}?since={since:.0f}", headers={"X-IDR-Usage-Token": token})
+        return None, "SECRET_KEY is not set, so the image server can't be asked."
+    req = urllib.request.Request(f"{url}?{query}", headers={"X-IDR-Usage-Token": token})
     try:
         with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.load(resp)
-        return data.get("events", []), data.get("health"), None
+            return json.load(resp), None
     except Exception as e:  # noqa: BLE001 - show it on the page instead of failing
-        return [], None, f"The image server didn't answer ({type(e).__name__}: {getattr(e, 'reason', e)})."
+        return None, f"The image server didn't answer ({type(e).__name__}: {getattr(e, 'reason', e)})."
+
+
+def fetch_image_search(since):
+    """(events, health, problem) from Image Search's /api/usage."""
+    data, problem = _fetch_feed(IMAGE_SEARCH_FEED, f"since={since:.0f}")
+    return (data.get("events", []), data.get("health"), None) if data else ([], None, problem)
+
+
+def fetch_hindi_search(since, days):
+    """(events, queries, health, problem) from the Hindi site search's /api/usage."""
+    data, problem = _fetch_feed(HINDI_SEARCH_FEED, f"since={since:.0f}&days={days}")
+    if not data:
+        return [], None, None, problem
+    return data.get("events", []), data.get("queries"), data.get("health"), None
 
 
 def git_version(folder):
@@ -225,6 +246,52 @@ def summarize(events, days, now=None):
             "recent": [describe(e) for e in reversed(current[-50:])], "total": len(current)}
 
 
+def summarize_search(events, queries, days, now=None):
+    """The Hindi site search section, from its usage rows (covering 2 x days) and query lists."""
+    now = now or time.time()
+    start, prev_start = now - days * 86400, now - 2 * days * 86400
+    current = [e for e in events if e["ts"] >= start]
+    before = sum(1 for e in events if prev_start <= e["ts"] < start)
+    ok = [e for e in current if e["ok"]]
+    times = sorted(e["seconds"] for e in ok if e.get("seconds"))
+
+    today = day_of(now)
+    dates = [today - timedelta(days=i) for i in range(days - 1, -1, -1)]
+    per_day = Counter(day_of(e["ts"]) for e in ok)
+    peak = max([per_day[d] for d in dates] + [1])
+    chart = [{"date": d.isoformat(), "label": d.strftime("%d %b"), "total": per_day[d],
+              "parts": [{"key": "hindi-search", "name": "Searches", "slot": SEARCH_SLOT, "count": per_day[d],
+                         "pct": per_day[d] / peak * 100}] if per_day[d] else []}
+             for d in dates]
+
+    failures = defaultdict(lambda: {"count": 0, "last": 0})
+    for e in current:
+        if not e["ok"]:
+            f = failures[e.get("error") or "unknown error"]
+            f["count"] += 1
+            f["last"] = max(f["last"], e["ts"])
+    problems = [{"tool": "Hindi Search", "error": err, "count": f["count"],
+                 "last": datetime.fromtimestamp(f["last"], IST).strftime("%d %b %H:%M")} for err, f in failures.items()]
+
+    details = [e["details"] for e in ok]
+    queries = queries or {}
+    return {
+        "searches": len(ok), "before": before,
+        "change": None if not before else round((len(ok) - before) / before * 100),
+        "failed": len(current) - len(ok),
+        "median_seconds": times[len(times) // 2] if times else None,
+        "per_day": round(len(ok) / days, 1),
+        "chart": chart, "peak": peak,
+        "kinds": [(SEARCH_KINDS.get(k, k), n) for k, n in Counter(d.get("kind") for d in details).most_common()],
+        "modes": [(SEARCH_MODES.get(m, m), n) for m, n in Counter(d.get("mode") for d in details).most_common()],
+        "top": queries.get("top") or [],
+        "few_matches": queries.get("few_matches") or [],
+        "few_limit": queries.get("few_matches_limit", 5),
+        "hidden": queries.get("hidden", 0),
+        "problems": problems,
+    }
+
+
 def describe(e):
     """One row for the activity tables."""
     d = e["details"]
@@ -261,11 +328,15 @@ async def dashboard(request: Request, days: int = 30):
     days = days if days in PERIODS else 30
     since = time.time() - 2 * days * 86400
     local = idr_usage.events_since(since)
-    (remote, image_health, remote_problem), health = await asyncio.gather(
-        asyncio.to_thread(fetch_image_search, since), asyncio.to_thread(local_health))
+    (remote, image_health, remote_problem), (s_events, s_queries, search_health, search_problem), health = \
+        await asyncio.gather(asyncio.to_thread(fetch_image_search, since),
+                             asyncio.to_thread(fetch_hindi_search, since, days), asyncio.to_thread(local_health))
     data = summarize(sorted(local + remote, key=lambda e: e["ts"]), days)
+    search = summarize_search(s_events, s_queries, days)
+    data["problems"] = sorted(data["problems"] + search["problems"], key=lambda p: (-p["count"], p["tool"]))
     return page("admin.html", periods=PERIODS, health=health, image_health=image_health,
-                remote_problem=remote_problem, **data)
+                remote_problem=remote_problem, search=search, search_health=search_health,
+                search_problem=search_problem, **data)
 
 
 @app.post("/unlock", dependencies=[Depends(require_login)])

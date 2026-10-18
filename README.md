@@ -191,13 +191,25 @@ Not linked from any page. Needs the normal IDR tools sign-in, then the admin pas
 - **Usage** - uses per tool per day, and how each tool is used (languages, voices, minutes of
   audio, emails collected, how often Image Search finds a match).
 - **Problems** - failures grouped by error, and the slowest runs.
+- **Hindi site search** - the search box on the Hindi site: searches per day, what people search
+  for (topics, years, series, authors, places) and in which script, typical search time, the
+  most searched queries, searches whose words matched few articles (worth a look for a missing
+  synonym or alias), and reader feedback towards the 200 ratings its ranking needs.
 - **Health** - each tool running or not and its code version, disk space on both servers,
-  Image Search's index and last weekly update, open Slack alerts.
+  Image Search's index and last weekly update, the Hindi search's indexes, last weekly
+  refresh, test scores and memory, open Slack alerts.
 
 Every tool records one row per use with `idr_usage.record()` (master copy in `shared/`) into
 `~/idr-usage.db` on its server - counts and settings only, never file names, texts, email
 addresses or images. Image Search's rows come from the image server's `/api/usage`, which
 only answers with a token derived from the shared `SECRET_KEY`.
+
+The Hindi site search (hindi_search repo, same server as Image Search) has its own
+`/api/usage` with the same token (`HINDI_SEARCH_USAGE_URL`, default
+`https://api.idronline.org/hindisearch/api/usage`). It is the one place the panel shows text:
+what readers typed into the public search box, aggregated, with anything that looks like an
+email address or phone number left out. The search service reads `SECRET_KEY` from the same
+`~/idr-tools.env` as Image Search.
 
 Runs as its own service: `uvicorn idr_emails.admin:app --host 127.0.0.1 --port 5003`, behind
 nginx at `/admin/` (see `deploy/nginx-tools.idronline.org.conf`).
