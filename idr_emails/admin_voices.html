@@ -1,0 +1,29 @@
+{% extends "admin_base.html" %}
+{% block lead %}Votes from the Audio voice listening test at tools.idronline.org/audio-samples/.
+        The team sees only letters; this page shows which voice each letter is.{% endblock %}
+{% block content %}
+      {% if not results %}
+        <p class="muted">No listening test yet. On the tools server run
+          <code>cd ~/audio_generation &amp;&amp; venv/bin/python tools/listening_test.py</code>.</p>
+      {% else %}
+        <p class="muted">Test made {{ results.run[:4] }}-{{ results.run[4:6] }}-{{ results.run[6:8] }}
+          &middot; {{ results.voters }} {{ "person has" if results.voters == 1 else "people have" }} voted.
+          Making a new test starts a fresh vote.</p>
+        <div class="grid">
+          {% for l in results.languages %}
+          <div class="box"><h3>{{ l.name }} <span class="muted" style="font-weight:400">&middot; {{ l.total }} vote{{ "" if l.total == 1 else "s" }}</span></h3>
+            {% for r in l.rows %}
+            <div class="kv"><span><b>{{ r.letter }}</b> &middot; {{ r.type if not r.label.startswith('Current') else 'Current (' ~ r.type ~ ')' }}
+                {% if r.leader %}<span class="pill up">most votes</span>{% endif %}
+                <br><span class="muted">{{ r.name }}{% if r.price is not none %} &middot; US${{ r.price }} per 1M characters{% endif %}</span></span>
+              <b>{{ r.votes }}{% if l.total %} <span class="muted">({{ r.pct }}%)</span>{% endif %}</b></div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+        <h2 class="section">Comments</h2>
+        {% for c in results.comments %}
+          <div class="kv"><span><b>{{ c.name }}</b>: {{ c.comment }}</span><span class="muted">{{ c.when }}</span></div>
+        {% else %}<p class="muted">No comments yet.</p>{% endfor %}
+      {% endif %}
+{% endblock %}

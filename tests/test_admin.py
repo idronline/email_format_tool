@@ -200,3 +200,44 @@ def test_missing_search_feed_is_shown_not_fatal(client, monkeypatch):
     assert r.status_code == 200
     assert "Hindi search numbers are missing: it timed out" in r.text
     assert "No answer from the search server" in r.text
+
+
+def make_listening_test(folder):
+    import json
+    import sqlite3
+    key = {"run": "20261027-101500", "languages": {
+        "hi": {"name": "Hindi", "voices": {
+            "A": {"label": "Chirp 3 HD", "type": "Chirp 3 HD", "name": "hi-IN-Chirp3-HD-Aoede", "price": 30, "free": 1000000},
+            "B": {"label": "Current (Google default)", "type": "WaveNet", "name": "hi-IN-Wavenet-A", "price": 4, "free": 4000000}}},
+        "mr": {"name": "Marathi", "voices": {
+            "A": {"label": "Standard", "type": "Standard", "name": "mr-IN-Standard-A", "price": 4, "free": 4000000}}}}}
+    (folder / "key.json").write_text(json.dumps(key))
+    conn = sqlite3.connect(folder / "votes.db")
+    conn.execute("CREATE TABLE votes (run TEXT, voter TEXT, lang TEXT, letter TEXT, name TEXT, comment TEXT, ts REAL)")
+    conn.executemany("INSERT INTO votes VALUES (?, ?, ?, ?, ?, ?, ?)", [
+        ("20261027-101500", "v1", "hi", "A", "Asha", "A says Hathipatta right", NOW),
+        ("20261027-101500", "v2", "hi", "A", None, None, NOW),
+        ("20261027-101500", "v3", "hi", "B", None, None, NOW),
+        ("old-run", "v4", "hi", "B", None, None, NOW)])        # an earlier test: not counted
+    conn.commit()
+    conn.close()
+
+
+def test_voice_results(tmp_path):
+    make_listening_test(tmp_path)
+    r = admin.listening_results(str(tmp_path))
+    hi = next(l for l in r["languages"] if l["code"] == "hi")
+    assert r["voters"] == 3 and hi["total"] == 3
+    assert [(x["letter"], x["votes"], x["pct"], x["leader"]) for x in hi["rows"]] == [("A", 2, 67, True), ("B", 1, 33, False)]
+    assert r["comments"] == [{"name": "Asha", "comment": "A says Hathipatta right", "when": r["comments"][0]["when"]}]
+    assert admin.listening_results(str(tmp_path / "missing")) is None
+
+
+def test_voices_tab(client, tmp_path, monkeypatch):
+    make_listening_test(tmp_path)
+    monkeypatch.setattr(admin, "LISTENING_DIR", str(tmp_path))
+    assert "Admin password" in client.get("/voices").text        # still behind the admin password
+    unlock(client)
+    t = client.get("/voices").text
+    assert "hi-IN-Chirp3-HD-Aoede" in t and "most votes" in t and "A says Hathipatta right" in t
+    assert "3 people have voted" in t

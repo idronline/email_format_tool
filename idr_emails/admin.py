@@ -19,6 +19,7 @@ import json
 import os
 import secrets
 import shutil
+import sqlite3
 import subprocess
 import time
 import urllib.error
@@ -54,6 +55,8 @@ SEARCH_SITES = [
 LOCAL_TOOLS = os.environ.get("IDR_ADMIN_TOOLS",
                              "Translate=multilang_ui:5000,Audio=audio_generation:5001,Email Collector=email_format_tool:5002")
 HEALTH_STATE = os.path.expanduser("~/.idr-health-state.json")
+# The Audio voice listening test (audio_generation/tools/listening_test.py) and its votes
+LISTENING_DIR = os.environ.get("AUDIO_SAMPLES_DIR") or os.path.expanduser("~/listening-test")
 
 # tool key -> (display name, categorical colour slot). Fixed order, never cycled.
 TOOLS = {
@@ -364,6 +367,49 @@ async def search_tab(request: Request, days: int = 30):
     not_connected = [site["name"] for site in SEARCH_SITES if site not in [c for c, _ in connected]]
     return page("admin_search.html", tab="search", periods=PERIODS, days=days, sites=sites,
                 not_connected=not_connected)
+
+
+def listening_results(folder=None):
+    """Votes from tools.idronline.org/audio-samples/ for the current test, with the answer key."""
+    folder = folder or LISTENING_DIR
+    try:
+        with open(os.path.join(folder, "key.json"), encoding="utf-8") as f:
+            key = json.load(f)
+    except (OSError, ValueError):
+        return None
+    votes, comments = Counter(), {}
+    db = os.path.join(folder, "votes.db")
+    if os.path.exists(db):
+        conn = sqlite3.connect(db)
+        rows = conn.execute("SELECT voter, lang, letter, name, comment, ts FROM votes WHERE run = ?",
+                            (key["run"],)).fetchall()
+        conn.close()
+        for voter, lang, letter, name, comment, ts in rows:
+            votes[(lang, letter)] += 1
+            if comment:
+                comments[voter] = {"name": name or "Someone", "comment": comment,
+                                   "when": datetime.fromtimestamp(ts, IST).strftime("%d %b %H:%M")}
+        voters = len({r[0] for r in rows})
+    else:
+        voters = 0
+    languages = []
+    for code, lang in key["languages"].items():
+        total = sum(votes[(code, letter)] for letter in lang["voices"])
+        rows = sorted(({"letter": letter, "votes": votes[(code, letter)], **v} for letter, v in lang["voices"].items()),
+                      key=lambda r: (-r["votes"], r["letter"]))
+        top = rows[0]["votes"] if rows else 0
+        for r in rows:
+            r["pct"] = round(r["votes"] / total * 100) if total else 0
+            r["leader"] = total > 0 and r["votes"] == top
+        languages.append({"code": code, "name": lang["name"], "total": total, "rows": rows})
+    return {"run": key["run"], "voters": voters, "languages": languages, "comments": list(comments.values())}
+
+
+@app.get("/voices", response_class=HTMLResponse, dependencies=[Depends(require_login)])
+async def voices_tab(request: Request):
+    if (blocked := gate(request)) is not None:
+        return blocked
+    return page("admin_voices.html", tab="voices", days=30, results=listening_results())
 
 
 @app.post("/unlock", dependencies=[Depends(require_login)])
