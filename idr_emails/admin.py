@@ -225,7 +225,7 @@ def summarize(events, days, now=None):
     usage = {
         "translate": {"languages": Counter(language_name(d.get("language")) for d in tr).most_common()},
         "audio": {"languages": Counter(language_name(d.get("language")) for d in au).most_common(),
-                  "voices": Counter((d.get("voice") or "?").capitalize() for d in au).most_common(),
+                  "voices": Counter(d["voice"].capitalize() for d in au if d.get("voice")).most_common(),
                   "minutes": round(sum(d.get("minutes") or 0 for d in au), 1)},
         "emails": {"audiences": Counter((d.get("audience") or "?").capitalize() for d in em).most_common(),
                    "emails": sum(d.get("emails") or 0 for d in em),
@@ -307,7 +307,7 @@ def describe(e):
     if tool == "translate":
         what = f"to {language_name(d.get('language'))}"
     elif tool == "audio":
-        what = f"{language_name(d.get('language'))}, {d.get('voice', '?')} voice" + \
+        what = language_name(d.get('language')) + (f", {d['voice']} voice" if d.get("voice") else "") + \
                (f", {d['minutes']} min" if d.get("minutes") else "")
     elif tool == "emails":
         what = f"{(d.get('audience') or '?').capitalize()} list" + \
