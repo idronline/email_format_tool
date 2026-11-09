@@ -71,8 +71,53 @@ app.include_router(make_routes(nav_html))
 app.include_router(beehiiv_web.router)
 
 
+# How beehiiv is updated - a side card next to the form (below it on narrow screens).
+BEEHIIV_RULES = [
+    ("Nothing changes in beehiiv until you press the button under your result.",
+     "जब तक आप नतीजे के नीचे वाला बटन नहीं दबाते, beehiiv में कुछ नहीं बदलता।"),
+    ("New English subscribers get both newsletters, The IDR Weekly and Off The Record, along with their names.",
+     "नए English सब्सक्राइबर्स को दोनों न्यूज़लेटर मिलते हैं, The IDR Weekly और Off The Record, साथ में उनका नाम भी जुड़ता है।"),
+    ("New Hindi subscribers are added with their names.",
+     "नए Hindi सब्सक्राइबर्स उनके नाम के साथ जुड़ते हैं।"),
+    ("No welcome or confirmation email is sent. New subscribers are active right away.",
+     "कोई वेलकम या कन्फ़र्मेशन ईमेल नहीं जाता। नए सब्सक्राइबर्स तुरंत एक्टिव हो जाते हैं।"),
+    ("People already on the list keep their newsletter choices. Only their first and last names are updated, "
+     "and only when the list has a different name. A blank name never replaces a saved one.",
+     "जो लोग पहले से लिस्ट में हैं, उनकी न्यूज़लेटर पसंद नहीं बदलती। सिर्फ़ उनका नाम अपडेट होता है, वह भी तभी जब लिस्ट में "
+     "नाम अलग हो। खाली नाम से पुराना नाम नहीं मिटता।"),
+    ("People who unsubscribed are never added back.",
+     "जिन्होंने अनसब्सक्राइब किया है, उन्हें दोबारा नहीं जोड़ा जाता।"),
+]
+
+
+def beehiiv_aside():
+    items = "".join(f"<li>{bi(en, hi)}</li>" for en, hi in BEEHIIV_RULES)
+    return f"""
+      <style>
+        .side-card{{background:var(--white);border:1px solid #e2e2e2;border-radius:12px;padding:1.25rem 1.3rem;margin-top:1.25rem;
+                   box-shadow:0 2px 10px rgba(0,0,0,.06)}}
+        .side-card h2{{font-size:1.05rem;margin:0 0 .7rem;line-height:1.3}}
+        .side-card h2 .hi{{font-family:var(--hindi-serif);font-size:.85em;font-weight:700;color:var(--black)}}
+        .side-card ul{{margin:0;padding-left:1.1rem;font-size:.88rem}}
+        .side-card li{{margin-bottom:.65rem}}
+        .side-card li .hi{{font-size:.82rem;margin-top:.1rem}}
+        /* narrow screens: show it after the form, not before */
+        @media (max-width:1319px){{main{{display:flex;flex-direction:column}} .side-card{{order:1}}}}
+        /* wide screens: float into the empty space right of the form; flow-root keeps the page tall enough */
+        @media (min-width:1320px){{main{{display:flow-root}}
+          .side-card{{float:right;width:300px;margin:1.25rem -324px 1rem 0}}}}
+      </style>
+      <aside class="side-card" aria-label="How beehiiv is updated">
+        <h2>How beehiiv is updated<span class="hi" lang="hi">beehiiv कैसे अपडेट होता है</span></h2>
+        <ul>{items}</ul>
+      </aside>
+"""
+
+
 def page(request: Request, result_html="", again=False):
     out = PAGE.replace("<!-- NAV -->", nav_html()).replace("<!-- RESULT -->", result_html)
+    if beehiiv_web.enabled():
+        out = out.replace("    <main>\n", "    <main>\n" + beehiiv_aside(), 1)
     if again:
         out = out.replace('<p class="card-note hidden" id="again">', '<p class="card-note" id="again">')
     return HTMLResponse(out)

@@ -149,21 +149,11 @@ def card(batch, audience, rows):
     """HTML for the beehiiv card on the result page (the script drives it)."""
     _, pub_name = beehiiv.publication(audience)
     minutes = max(1, round(rows / beehiiv.REQUESTS_PER_MINUTE))
-    english = audience == "english"
-    rules = ("New subscribers get both newsletters (The IDR Weekly, Off The Record). People already in beehiiv keep "
-             "their choices; only their names are updated. Unsubscribed people are skipped. No welcome email."
-             if english else
-             "New subscribers are added with their names. People already in beehiiv only get their names updated. "
-             "Unsubscribed people are skipped. No welcome email.")
-    rules_hi = ("नए सब्सक्राइबर्स को दोनों न्यूज़लेटर मिलेंगे। पहले से मौजूद लोगों की पसंद नहीं बदलेगी, सिर्फ़ नाम अपडेट होंगे। "
-                "अनसब्सक्राइब कर चुके लोगों को छोड़ दिया जाएगा।" if english else
-                "नए सब्सक्राइबर्स नाम के साथ जुड़ेंगे। पहले से मौजूद लोगों के सिर्फ़ नाम अपडेट होंगे। अनसब्सक्राइब कर चुके लोगों को छोड़ दिया जाएगा।")
     return f"""
 <section class="card result" id="bh" data-batch="{batch}">
   <div class="done-head"><div class="tick" style="background:var(--black);font-size:1rem">b</div>
     <div><h2>Add to beehiiv<span class="hi" lang="hi">beehiiv में जोड़ें</span></h2>
       <p>Publication: {pub_name} &middot; {rows:,} emails &middot; checking takes about {minutes} min</p></div></div>
-  <p class="hint" style="margin-top:0">{rules}<span class="hi" lang="hi">{rules_hi}</span></p>
   <div id="bh-body"></div>
 </section>
 <script>

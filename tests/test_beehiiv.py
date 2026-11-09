@@ -184,3 +184,11 @@ def test_expired_and_unchecked(web):
     beehiiv_web.BATCHES["old"] = {"audience": "english", "rows": [], "created": time.time() - 2 * beehiiv_web.KEEP_SECONDS}
     beehiiv_web._forget_old()
     assert "old" not in beehiiv_web.BATCHES
+
+
+def test_rules_card_only_when_beehiiv_is_connected(web, monkeypatch):
+    html = web.get("/").text
+    assert "How beehiiv is updated" in html and "beehiiv कैसे अपडेट होता है" in html
+    assert "never added back" in html and "दोबारा नहीं जोड़ा जाता" in html
+    monkeypatch.delenv("BEEHIIV_API_KEY")
+    assert "How beehiiv is updated" not in web.get("/").text
