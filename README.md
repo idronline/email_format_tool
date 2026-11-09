@@ -3,6 +3,9 @@
 Turns a zip of folders of CSV / XLSX / DOCX files (collected by non-technical people) into **one clean CSV**
 in the IDR newsletter-subscriber upload format.
 
+
+**Open tasks for all the IDR tools are tracked in [TASKS.md](TASKS.md)** - keep it up to date.
+
 ## Output format
 
 Exact header, one row per unique email:
