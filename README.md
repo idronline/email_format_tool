@@ -218,3 +218,21 @@ email address or phone number left out. The search service reads `SECRET_KEY` fr
 
 Runs as its own service: `uvicorn idr_emails.admin:app --host 127.0.0.1 --port 5003`, behind
 nginx at `/admin/` (see `deploy/nginx-tools.idronline.org.conf`).
+
+## Adding a list to beehiiv
+
+With `BEEHIIV_API_KEY` in `~/idr-tools.env` (keep the key out of git), every result page
+gets an **Add to beehiiv** card (`idr_emails/beehiiv.py`, `beehiiv_web.py`):
+
+1. It checks every collected email against the right publication - English: *The IDR
+   Weekly*, Hindi: *आईडीआर हिंदी* - and shows: new / already subscribed / names to update /
+   unsubscribed or invalid (skipped). The check changes nothing.
+2. A button then adds the new people and updates names. Nothing happens until it is pressed.
+
+Rules: new English subscribers get Newsletter Preference = both newsletters; new Hindi
+subscribers get names only; no welcome or confirmation email. People already in beehiiv
+keep their preferences - only First/Last Name change, and only to a non-empty, different
+name. Unsubscribed people are never touched. Each new person is looked up again just
+before being added, because beehiiv's "create" overwrites the fields of anyone who
+already exists. The list is kept in memory for at most an hour, never on disk.
+beehiiv allows 180 requests a minute on IDR's plan, so checking takes ~1 minute per 180 emails.

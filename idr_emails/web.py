@@ -4,7 +4,9 @@ Run:  uvicorn idr_emails.web:app --host 0.0.0.0 --port 5002
       (behind nginx at /emails/:  --host 127.0.0.1, nginx sends X-Forwarded-Prefix /emails)
 
 Uploads are processed in a temporary folder that is deleted at once; results are
-embedded in the response page, so nothing with personal data is kept on the server.
+embedded in the response page. When beehiiv is set up (BEEHIIV_API_KEY), the collected
+emails and names are also kept in memory for up to an hour for the "Add to beehiiv"
+card (beehiiv_web.py) - never on disk.
 Set APP_USERNAME and APP_PASSWORD to require the shared IDR tools login (see login.py).
 """
 
@@ -21,7 +23,7 @@ from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import AUDIENCES
+from . import AUDIENCES, beehiiv_web
 from .idr_usage import record as record_usage
 from .login import login_enabled, make_routes, require_login
 from .pipeline import run
@@ -66,6 +68,7 @@ def nav_html():
 
 
 app.include_router(make_routes(nav_html))
+app.include_router(beehiiv_web.router)
 
 
 def page(request: Request, result_html="", again=False):
@@ -149,6 +152,9 @@ def process(request: Request,
         + download_link(out_name, texts["subscribers.csv"], f"Download {out_name}", f"{out_name} डाउनलोड करें", primary=True)
         + f'<div class="stats">{tiles}</div>{bad}'
         + f'<details><summary>More reports (optional) &middot; <span lang="hi">और रिपोर्ट (ज़रूरी नहीं)</span></summary>{reports}</details>'
-        + '</section>',
+        + '</section>'
+        + (beehiiv_web.card(beehiiv_web.remember(audience, [(e, v["first"], v["last"]) for e, v in sorted(r.found.items())]),
+                            audience, len(r.found))
+           if beehiiv_web.enabled() and r.found else ""),
         again=True,
     )
