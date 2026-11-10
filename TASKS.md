@@ -5,7 +5,7 @@ and their two servers. Update it whenever something is decided, started or finis
 move finished items to **Done**, dropped ones to **Decided against** (with the reason), and
 change the date below. Keep keys, passwords and personal email addresses out of this file.
 
-_Last updated: 2026-11-09_
+_Last updated: 2026-11-10_
 
 Servers: **tools server** (Translate, Audio, Email Collector, admin panel – `tools.idronline.org`)
 and **search server** (Image Search, Hindi search, English search – `api.idronline.org`).
@@ -40,6 +40,10 @@ and **search server** (Image Search, Hindi search, English search – `api.idron
 
 ## Housekeeping (small, unconfirmed)
 
+- [ ] Image Search weekly update: check the **English** exports work again on Sunday 2026-11-15 (admin panel → Health, or
+      `grep 'English' ~/idr-image-search/logs/weekly_update.log | tail`). On 2026-11-08 idronline.org answered 403 to the export
+      *trigger* for all four English exports; the search server's IP has since been whitelisted. Quick test any time:
+      `venv/bin/python weekly_update.py --only English-Articles.csv`.
 - [ ] Search server: reboot if it still shows "System restart required" (not during the Sunday update).
 - [ ] Search server: delete unused `~/hindi-image-search` (check nothing runs from it first).
 - [ ] Search server: check `exports.json` includes the Hindi site's exports, so Hindi images are indexed each Sunday.
